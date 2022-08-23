@@ -14,7 +14,7 @@ export function evaluateExpression(
     expression.value[0].value === 'fn'
   ) {
     if (expression.value.length !== 3) {
-      return { error: 'Non complete function definition', span: expression.span }
+      return { error: 'Incomplete function definition', span: expression.span }
     }
     const args = expression.value[1]
     if (args.kind !== 'vector') {

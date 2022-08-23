@@ -59,9 +59,12 @@ Deno.test('Defining macros', () => {
 
 Deno.test('Using macros', async (t) => {
   await t.step('Simple macro', () => {
-    assertEquals(parseAndExpand('((macro [a] a) 5)'), { result: { kind: 'number', value: 5 } })
+    assertEquals(parseAndExpand('~((macro [a] ~a) 5)'), {
+      result: { kind: 'number', value: 5, span: { start: 17, end: 18 } },
+    })
   })
 })
+
 function parseAndExpand(source: string): { result: MacrosAST } | ASTParsingError | MacroExpansionError {
   const ast = parseToAST(source)
   if ('error' in ast) {
