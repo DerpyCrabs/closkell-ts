@@ -81,9 +81,14 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
     } else {
       const results = expression.value.slice(1).map((e) => expandMacros(e, env, evaluating))
       if (results.some((r) => 'error' in r)) {
-        return { error: results.filter((r) => 'error' in r).map((r) => (r as any).error)[0] } // TODO return all errors
+        return { error: results.filter((r) => 'error' in r).map((r) => (r as MacroExpansionError).error)[0] } // TODO return all errors
       }
-      return { result: { ...expression, value: [expression.value[0], ...(results as any).map((r: any) => r.result)] } }
+      return {
+        result: {
+          ...expression,
+          value: [expression.value[0], ...(results as { result: MacrosAST }[]).map((r) => r.result)],
+        },
+      }
     }
   } else if (expression.kind === 'list') {
     const evaluatedExpressionsWithErrors = expression.value.map((e) => expandMacros(e, env, evaluating))
