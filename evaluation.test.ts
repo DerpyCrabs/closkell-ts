@@ -82,6 +82,24 @@ Deno.test('Booleans', async (t) => {
   })
 })
 
+Deno.test('let expression', async (t) => {
+  await t.step('single binding let', () => {
+    assertEquals(parseAndEval('(let [a 5] a)'), { result: { kind: 'number', value: 5, span: { start: 8, end: 9 } } })
+
+    assertEquals(parseAndEval('(let [a (fn [a] (+ a a))] (a 5))'), { result: { kind: 'number', value: 10 } })
+  })
+
+  await t.step('multiple bindings let', () => {
+    assertEquals(parseAndEval('(let [a 5 b 10] (+ a b))'), { result: { kind: 'number', value: 15 } })
+
+    assertEquals(parseAndEval('(let [a (fn [a] (+ a a)) b (fn [a b] (+ a b))] (b (a 5) 7))'), {
+      result: { kind: 'number', value: 17 },
+    })
+  })
+
+  await t.step('recursive function definition in let', () => {})
+})
+
 function parseAndEval(source: string): { result: EvalAST } | ASTParsingError | EvaluationError {
   const ast = parseToAST(source)
   if ('error' in ast) {
