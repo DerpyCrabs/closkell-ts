@@ -19,6 +19,10 @@ export const intrinsics: Binding[] = [
     value: nAryNumberOperation((a, b) => a / b),
   },
   {
+    name: '=',
+    value: nAryNumberBooleanOperation((a, b) => a === b),
+  },
+  {
     name: 'string/concat',
     value: nAryStringOperation((a, b) => a + b),
   },
@@ -37,6 +41,34 @@ function nAryNumberOperation(binaryOp: (a: number, b: number) => number): EIntri
               (args[0] as ENumber).value,
               args.slice(1).map((a) => (a as ENumber).value)
             ),
+          },
+        }
+      } else {
+        const notNumber = args.find((a) => a.kind !== 'number') as EvalAST
+        return {
+          error: `Expected number, received ${notNumber.kind}`,
+          span: 'span' in notNumber ? notNumber.span : undefined,
+        }
+      }
+    },
+  }
+}
+
+function nAryNumberBooleanOperation(binaryOp: (a: number, b: number) => boolean): EIntrinsicFunction {
+  return {
+    kind: 'intrinsicFunction',
+    value: (args: EvalAST[]) => {
+      if (args.every((a) => a.kind === 'number')) {
+        return {
+          result: {
+            kind: 'atom',
+            value: R.reduce(
+              binaryOp,
+              (args[0] as ENumber).value,
+              args.slice(1).map((a) => (a as ENumber).value)
+            )
+              ? 'true'
+              : 'false',
           },
         }
       } else {

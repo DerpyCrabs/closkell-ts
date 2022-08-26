@@ -177,4 +177,8 @@ Deno.test('Parsing', async (t) => {
       },
     })
   })
+
+  await t.step('Need better errors', () => {
+    assertEquals('result' in parseToAST('(let [a (fn [n] (if (= n 0) 5 (a (- n 1)))] (a 5)'), true)
+  })
 })

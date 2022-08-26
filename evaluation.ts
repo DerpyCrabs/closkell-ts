@@ -56,7 +56,17 @@ export function evaluateExpression(
       return { error: `Expected atom got ${incorrectBind.kind}`, span: incorrectBind.span }
     }
     const evaluatedBindingPairs = bindingPairs.map(
-      (p) => [p[0], evaluateExpression(p[1], env)] as [EvalAST, EvaluationResult]
+      (p) =>
+        [
+          p[0],
+          evaluateExpression(p[1], [
+            ...env,
+            ...bindingPairs.map((p) => ({
+              name: (p[0] as EAtom).value,
+              value: p[1],
+            })),
+          ]),
+        ] as [EvalAST, EvaluationResult]
     )
     const evaluatedBindError = evaluatedBindingPairs.find((p) => 'error' in p[1])
     if (evaluatedBindError) {
@@ -111,9 +121,13 @@ export function evaluateExpression(
       return evaluateExpression(fn.body, [...fn.env, ...fn.arguments.map((arg, i) => ({ name: arg, value: args[i] }))])
     }
   } else if (expression.kind === 'atom' && !isBoolean(expression)) {
-    const binding = env.find((b) => b.name === expression.value)
+    const binding = env.findLast((b) => b.name === expression.value)
     if (binding) {
-      return { result: binding.value }
+      if (isFunctionDef(binding.value)) {
+        return evaluateExpression(binding.value, env)
+      } else {
+        return { result: binding.value }
+      }
     } else {
       return { error: `Unknown atom ${expression.value}`, span: expression.span }
     }
@@ -124,4 +138,8 @@ export function evaluateExpression(
 
 function isBoolean(e: EvalAST): e is typeof e & { kind: 'atom'; value: 'false' | 'true' } {
   return e.kind === 'atom' && (e.value === 'false' || e.value === 'true')
+}
+
+function isFunctionDef(e: EvalAST): boolean {
+  return e.kind === 'list' && e.value.length !== 0 && e.value[0].kind === 'atom' && e.value[0].value === 'fn'
 }

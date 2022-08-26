@@ -79,6 +79,10 @@ Deno.test('Booleans', async (t) => {
       error: 'Expected true or false, got number',
       span: { start: 4, end: 5 },
     })
+
+    assertEquals(parseAndEval('(if (= 5 5) 5 3)'), {
+      result: { kind: 'number', value: 5, span: { start: 12, end: 13 } },
+    })
   })
 })
 
@@ -97,7 +101,11 @@ Deno.test('let expression', async (t) => {
     })
   })
 
-  await t.step('recursive function definition in let', () => {})
+  await t.step('recursive function definition in let', () => {
+    assertEquals(parseAndEval('(let [a (fn [n] (if (= n 0) 7 (+ 1 (a (- n 1)))))] (a 5))'), {
+      result: { kind: 'number', value: 12 },
+    })
+  })
 })
 
 function parseAndEval(source: string): { result: EvalAST } | ASTParsingError | EvaluationError {
