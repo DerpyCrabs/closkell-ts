@@ -152,7 +152,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
       } else if (currentChar === ';') {
         const endOfLineIndex = Array.from(source.slice(currentPosition + 1)).findIndex((c) => c === '\n')
         if (endOfLineIndex !== -1) {
-          currentPosition = currentPosition + 1 + endOfLineIndex + 1
+          currentPosition = currentPosition + 1 + endOfLineIndex
         } else {
           return { error: 'No expressions found', span: { start: position, end: source.length } }
         }
