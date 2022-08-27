@@ -1,4 +1,5 @@
 import { ParserAST, Span } from './types.ts'
+import { red, bold } from 'https://deno.land/std@0.153.0/fmt/colors.ts'
 
 export type ASTParsingErrorTypes =
   | 'No expressions found'
@@ -237,7 +238,10 @@ function parseExpression(source: string, position: number): ASTParsingResult {
       } else if (isAllowedAtomFirstChar(currentChar)) {
         consumptionState = { start: currentPosition, sourceType: 'atom', source: currentChar }
       } else {
-        throw new Error('parseExpression: not implemented')
+        console.log(source.slice(0, currentPosition))
+        console.log(red(bold(currentChar)))
+        console.log(source.slice(currentPosition + 1))
+        throw new Error(`parseExpression: not implemented`)
       }
     }
     currentPosition += 1
@@ -265,7 +269,7 @@ function parseInnerExpressions(
 }
 
 function isWhitespace(source: string): boolean {
-  return [' ', '\n', '\t', ','].includes(source)
+  return [' ', '\n', '\t', ',', '\r'].includes(source)
 }
 
 function isNumber(source: string): boolean {
