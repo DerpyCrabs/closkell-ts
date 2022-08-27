@@ -23,6 +23,26 @@ export const intrinsics: Binding[] = [
     value: nAryNumberBooleanOperation((a, b) => a === b),
   },
   {
+    name: '!=',
+    value: nAryNumberBooleanOperation((a, b) => a !== b),
+  },
+  {
+    name: '>',
+    value: nAryNumberBooleanOperation((a, b) => a > b),
+  },
+  {
+    name: '<',
+    value: nAryNumberBooleanOperation((a, b) => a < b),
+  },
+  {
+    name: '<=',
+    value: nAryNumberBooleanOperation((a, b) => a <= b),
+  },
+  {
+    name: '>=',
+    value: nAryNumberBooleanOperation((a, b) => a >= b),
+  },
+  {
     name: 'string/concat',
     value: nAryStringOperation((a, b) => a + b),
   },
