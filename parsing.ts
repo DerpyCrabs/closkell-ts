@@ -260,12 +260,21 @@ function parseInnerExpressions(
     if ('error' in nextExpression) {
       return nextExpression
     } else {
-      currentPosition = nextExpression.result.span.end
       innerExpressions.push(nextExpression.result)
+      const newPosition = consumeWhitespace(source, nextExpression.result.span.end)
+      currentPosition = newPosition
       currentChar = source[currentPosition]
     }
   }
   return { expressions: innerExpressions, newPosition: currentPosition }
+}
+
+function consumeWhitespace(source: string, currentPosition: number): number {
+  let newPosition = currentPosition
+  while (isWhitespace(source[newPosition]) && newPosition < source.length) {
+    newPosition += 1
+  }
+  return newPosition
 }
 
 function isWhitespace(source: string): boolean {
