@@ -8,6 +8,8 @@ Deno.test('Primitive functions', async (t) => {
   await t.step('Arithmetic operations', () => {
     assertEquals(parseAndEval('(+ 3 (- 5 2 1))'), { result: { kind: 'number', value: 5 } })
     assertEquals(parseAndEval('(* 3 2 (/ 6 2 1))'), { result: { kind: 'number', value: 18 } })
+    assertEquals(parseAndEval('(> 5 1)'), { result: { kind: 'atom', value: 'true' } })
+    assertEquals(parseAndEval('(< 5 1)'), { result: { kind: 'atom', value: 'false' } })
   })
 
   await t.step('String operations', () => {
