@@ -1,0 +1,8 @@
+; expected {"kind": "number", "value": 8}
+(let
+    [fib (fn [n]
+        (if (< 1 n)
+            (+ (fib (- n 1)) (fib (- n 2)))
+            1))]
+    (fib 5)
+)
