@@ -137,3 +137,20 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
 function isBoolean(e: MacrosAST): e is typeof e & { kind: 'atom'; value: 'false' | 'true' } {
   return e.kind === 'atom' && (e.value === 'false' || e.value === 'true')
 }
+
+export function verifyNoMacros(expression: MacrosAST): EvalAST {
+  if (
+    expression.kind === 'list' &&
+    expression.value.length !== 0 &&
+    expression.value[0].kind === 'atom' &&
+    expression.value[0].value === 'macro'
+  ) {
+    throw new Error(`Unexpected macro at ${JSON.stringify(expression.span)}`)
+  } else if (expression.kind === 'macro') {
+    throw new Error(`Unexpected macro at ${JSON.stringify(expression.span)}`)
+  } else if (expression.kind === 'list' || expression.kind === 'vector' || expression.kind === 'map') {
+    return { ...expression, value: expression.value.map(verifyNoMacros) } as EvalAST
+  } else {
+    return expression as EvalAST
+  }
+}
