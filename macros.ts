@@ -204,6 +204,20 @@ export function verifyNoMacros(expression: MacrosAST): EvalAST {
     expression.value[0].value === 'macro'
   ) {
     throw new Error(`Unexpected macro at ${JSON.stringify(expression.span)}`)
+  } else if (
+    expression.kind === 'list' &&
+    expression.value.length !== 0 &&
+    expression.value[0].kind === 'atom' &&
+    expression.value[0].value === 'quote'
+  ) {
+    throw new Error(`Unexpected quote at ${JSON.stringify(expression.span)}`)
+  } else if (
+    expression.kind === 'list' &&
+    expression.value.length !== 0 &&
+    expression.value[0].kind === 'atom' &&
+    expression.value[0].value === 'unquote'
+  ) {
+    throw new Error(`Unexpected unquote at ${JSON.stringify(expression.span)}`)
   } else if (expression.kind === 'macro') {
     throw new Error(`Unexpected macro at ${JSON.stringify(expression.span)}`)
   } else if (expression.kind === 'list' || expression.kind === 'vector' || expression.kind === 'map') {
