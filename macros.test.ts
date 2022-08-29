@@ -59,13 +59,18 @@ Deno.test('Defining macros', () => {
 
 Deno.test('Using macros', async (t) => {
   await t.step('Simple macro', () => {
-    assertEquals(parseAndExpand('~((macro [a] ~a) 5)'), {
-      result: { kind: 'number', value: 5, span: { start: 17, end: 18 } },
+    assertEquals(parseAndExpand('((macro [a] ~a) 5)'), {
+      result: { kind: 'number', value: 5, span: { start: 16, end: 17 } },
     })
   })
   await t.step('Calling macro in macro', () => {
-    assertEquals(parseAndExpand('~((macro [a] ~((macro [b] ~(+ a b)) 3)) 5)'), {
+    assertEquals(parseAndExpand('((macro [a] ~((macro [b] ~(+ a b)) 3)) 5)'), {
       result: { kind: 'number', value: 8 },
+    })
+  })
+  await t.step('Supports macros in let bindings', () => {
+    assertEquals(parseAndExpand('(let [macroA (macro [a] ~a)] (macroA 5))'), {
+      result: { kind: 'number', value: 5, span: { start: 37, end: 38 } },
     })
   })
 })

@@ -14,10 +14,8 @@ Deno.test('samples', async (t) => {
 function testSample({ source, expected }: { filename: string; source: string; expected: EvalAST }): void {
   const parsedAst = parseToAST(source)
   assert('result' in parsedAst, JSON.stringify((parsedAst as ASTParsingError).error))
-  const macroExpandedAst = parsedAst
-  // TODO enable macros after let implementation
-  //   const macroExpandedAst = expandMacros(parsedAst.result, intrinsics)
-  //   assert('result' in macroExpandedAst, JSON.stringify((macroExpandedAst as any).error))
+  const macroExpandedAst = expandMacros(parsedAst.result, intrinsics)
+  assert('result' in macroExpandedAst, JSON.stringify((macroExpandedAst as any).error))
   const evaledAst = evaluateExpression(verifyNoMacros(macroExpandedAst.result), intrinsics)
   assert('result' in evaledAst, JSON.stringify((evaledAst as EvaluationError).error))
   assertObjectMatch(evaledAst.result, expected)

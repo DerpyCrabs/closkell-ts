@@ -1,4 +1,5 @@
 import { EvalAST, MacrosAST, MacrosBinding, MAtom, Span } from './types.ts'
+import * as R from 'ramda'
 
 export type MacroExpansionError = { error: string; span?: Span }
 export type MacroExpansionResult = { result: MacrosAST } | MacroExpansionError
@@ -60,6 +61,63 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
     expression.kind === 'list' &&
     expression.value.length !== 0 &&
     expression.value[0].kind === 'atom' &&
+    expression.value[0].value === 'let'
+  ) {
+    if (expression.value.length !== 3) {
+      return { error: 'Incomplete let definition', span: expression.span }
+    }
+    if (expression.value[1].kind !== 'vector') {
+      return {
+        error: `Expected vector as first let argument, got ${expression.value[1].kind}`,
+        span: expression.value[1].span,
+      }
+    }
+    if (expression.value[1].value.length % 2 !== 0) {
+      return {
+        error: `Incomplete let binding`,
+        span: expression.value[1].span,
+      }
+    }
+    const bindingPairs: [MacrosAST, MacrosAST][] = R.splitEvery(2, expression.value[1].value)
+    const incorrectBind = bindingPairs.map((p) => p[0]).find((b) => b.kind !== 'atom')
+    if (incorrectBind) {
+      return { error: `Expected atom got ${incorrectBind.kind}`, span: incorrectBind.span }
+    }
+    const evaluatedBindingPairs = bindingPairs.map(
+      (p) =>
+        [
+          p[0],
+          expandMacros(
+            p[1],
+            [
+              ...env,
+              ...bindingPairs.map((p) => ({
+                name: (p[0] as MAtom).value,
+                value: p[1],
+              })),
+            ],
+            evaluating
+          ),
+        ] as [EvalAST, MacroExpansionResult]
+    )
+    const evaluatedBindError = evaluatedBindingPairs.find((p) => 'error' in p[1])
+    if (evaluatedBindError) {
+      return evaluatedBindError[1]
+    }
+    return expandMacros(expression.value[2], [
+      ...env,
+      ...evaluatedBindingPairs.map(
+        (p) => ({
+          name: (p[0] as MAtom).value,
+          value: (p[1] as { result: MacrosAST }).result,
+        }),
+        evaluating
+      ),
+    ])
+  } else if (
+    expression.kind === 'list' &&
+    expression.value.length !== 0 &&
+    expression.value[0].kind === 'atom' &&
     expression.value[0].value === 'if'
   ) {
     if (evaluating) {
@@ -97,7 +155,7 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
       return errors[0] // TODO return all errors
     }
     const evaluatedExpressions = (evaluatedExpressionsWithErrors as { result: MacrosAST }[]).map((e) => e.result)
-    if (evaluating) {
+    if (evaluating || evaluatedExpressions[0].kind === 'macro') {
       if (
         evaluatedExpressions[0].kind !== 'function' &&
         evaluatedExpressions[0].kind !== 'intrinsicFunction' &&
@@ -122,7 +180,7 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
     } else {
       return { result: { ...expression, value: evaluatedExpressions } }
     }
-  } else if (expression.kind === 'atom' && !isBoolean(expression) && evaluating) {
+  } else if (expression.kind === 'atom' && !isBoolean(expression)) {
     const binding = env.find((b) => b.name === expression.value)
     if (binding) {
       return { result: binding.value }
