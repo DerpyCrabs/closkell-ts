@@ -93,7 +93,7 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
     if (incorrectBind) {
       return { error: `Expected atom got ${incorrectBind.kind}`, span: incorrectBind.span }
     }
-    const evaluatedBindingPairs = bindingPairs.map(
+    const evaluatedBindingPairsWithErrors = bindingPairs.map(
       (p) =>
         [
           p[0],
@@ -110,20 +110,42 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
           ),
         ] as [EvalAST, MacroExpansionResult]
     )
-    const evaluatedBindError = evaluatedBindingPairs.find((p) => 'error' in p[1])
+    const evaluatedBindError = evaluatedBindingPairsWithErrors.find((p) => 'error' in p[1])
     if (evaluatedBindError) {
       return evaluatedBindError[1]
     }
-    return expandMacros(expression.value[2], [
+    const evaluatedBindingPairs: [MAtom, MacrosAST][] = evaluatedBindingPairsWithErrors.map((p) => [
+      p[0] as MAtom,
+      (p[1] as { result: MacrosAST }).result,
+    ])
+    const expandedResult = expandMacros(expression.value[2], [
       ...env,
       ...evaluatedBindingPairs.map(
         (p) => ({
-          name: (p[0] as MAtom).value,
-          value: (p[1] as { result: MacrosAST }).result,
+          name: p[0].value,
+          value: p[1],
         }),
         evaluating
       ),
     ])
+    if ('error' in expandedResult) {
+      return expandedResult
+    }
+    if (evaluatedBindingPairs.some((p) => p[1].kind !== 'macro')) {
+      return {
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'atom', value: 'let' },
+            { kind: 'vector', value: evaluatedBindingPairs.filter((p) => p[1].kind !== 'macro').flat() },
+            expandedResult.result,
+          ],
+          span: expression.span,
+        },
+      }
+    } else {
+      return expandedResult
+    }
   } else if (
     expression.kind === 'list' &&
     expression.value.length !== 0 &&

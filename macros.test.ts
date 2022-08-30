@@ -69,8 +69,31 @@ Deno.test('Using macros', async (t) => {
     })
   })
   await t.step('Supports macros in let bindings', () => {
-    assertEquals(parseAndExpand('(let [macroA (macro [a] ~a)] (macroA 5))'), {
-      result: { kind: 'number', value: 5, span: { start: 37, end: 38 } },
+    assertObjectMatch(parseAndExpand('(let [macroA (macro [a] ~a)] (macroA 5))'), {
+      result: { kind: 'number', value: 5 },
+    })
+    assertObjectMatch(parseAndExpand('(let [macroA (macro [a] ~a) b 15] (+ b (macroA 5)))'), {
+      result: {
+        kind: 'list',
+        value: [
+          { kind: 'atom', value: 'let' },
+          {
+            kind: 'vector',
+            value: [
+              { kind: 'atom', value: 'b' },
+              { kind: 'number', value: 15 },
+            ],
+          },
+          {
+            kind: 'list',
+            value: [
+              { kind: 'atom', value: '+' },
+              { kind: 'atom', value: 'b' },
+              { kind: 'number', value: 5 },
+            ],
+          },
+        ],
+      },
     })
   })
   await t.step('Supports quote and unquote', () => {
