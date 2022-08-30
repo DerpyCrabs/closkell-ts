@@ -40,6 +40,16 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
     expression.kind === 'list' &&
     expression.value.length !== 0 &&
     expression.value[0].kind === 'atom' &&
+    expression.value[0].value === 'quote'
+  ) {
+    if (expression.value.length !== 2) {
+      return { error: `Expected 1 argument, got ${expression.value.length - 1}`, span: expression.span }
+    }
+    return expandMacros(expression.value[1], env, false)
+  } else if (
+    expression.kind === 'list' &&
+    expression.value.length !== 0 &&
+    expression.value[0].kind === 'atom' &&
     expression.value[0].value === 'fn'
   ) {
     if (expression.value.length !== 3) {
@@ -182,10 +192,12 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
     }
   } else if (expression.kind === 'atom' && !isBoolean(expression)) {
     const binding = env.find((b) => b.name === expression.value)
-    if (binding) {
+    if (binding && evaluating) {
+      return { result: binding.value }
+    } else if (binding && binding.value.kind === 'macro') {
       return { result: binding.value }
     } else {
-      return { error: `Unknown atom ${expression.value}`, span: expression.span }
+      return { result: expression }
     }
   } else {
     return { result: expression }

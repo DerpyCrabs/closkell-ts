@@ -1,4 +1,4 @@
-import { assertEquals } from 'asserts'
+import { assertEquals, assertObjectMatch } from 'asserts'
 import { intrinsics } from './intrinsics.ts'
 import { expandMacros, MacroExpansionError } from './macros.ts'
 import { ASTParsingError, parseToAST } from './parsing.ts'
@@ -59,8 +59,8 @@ Deno.test('Defining macros', () => {
 
 Deno.test('Using macros', async (t) => {
   await t.step('Simple macro', () => {
-    assertEquals(parseAndExpand('((macro [a] ~a) 5)'), {
-      result: { kind: 'number', value: 5, span: { start: 16, end: 17 } },
+    assertObjectMatch(parseAndExpand('((macro [a] ~a) 5)'), {
+      result: { kind: 'number', value: 5 },
     })
   })
   await t.step('Calling macro in macro', () => {
@@ -71,6 +71,35 @@ Deno.test('Using macros', async (t) => {
   await t.step('Supports macros in let bindings', () => {
     assertEquals(parseAndExpand('(let [macroA (macro [a] ~a)] (macroA 5))'), {
       result: { kind: 'number', value: 5, span: { start: 37, end: 38 } },
+    })
+  })
+  await t.step('Supports quote and unquote', () => {
+    assertObjectMatch(parseAndExpand("(let [macroA (macro [a] '(+ ~a ~a))] (macroA 5))"), {
+      result: {
+        kind: 'list',
+        value: [
+          { kind: 'atom', value: '+' },
+          { kind: 'number', value: 5 },
+          { kind: 'number', value: 5 },
+        ],
+      },
+    })
+    assertObjectMatch(parseAndExpand("(let [macroA (macro [a] '(+ ~((fn [b] b) '(+ ~a 3)) ~a))] (macroA 5))"), {
+      result: {
+        kind: 'list',
+        value: [
+          { kind: 'atom', value: '+' },
+          {
+            kind: 'list',
+            value: [
+              { kind: 'atom', value: '+' },
+              { kind: 'number', value: 5 },
+              { kind: 'number', value: 3 },
+            ],
+          },
+          { kind: 'number', value: 5 },
+        ],
+      },
     })
   })
 })
