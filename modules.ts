@@ -25,8 +25,19 @@ export type ParseModuleError = { error: string; span: Span }
 export type ParseModuleResult = { result: Module } | ParseModuleError
 
 export function parseModule(url: string, expressions: ParserAST[]): ParseModuleResult {
-  if (expressions[0].kind !== 'list') {
-    return { error: 'Not a module header', span: expressions[0].span }
+  if (
+    expressions[0].kind !== 'list' ||
+    expressions[0].value[0].kind !== 'atom' ||
+    (expressions[0].value[0].value !== 'executable' && expressions[0].value[0].value !== 'module')
+  ) {
+    return {
+      result: {
+        url,
+        imports: [],
+        isExecutable: true,
+        expressions: expressions,
+      },
+    }
   }
 
   const header = expressions[0]
