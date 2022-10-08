@@ -1,7 +1,7 @@
-import { assertEquals, assertObjectMatch } from 'asserts'
-import { parseToAST } from './parsing.ts'
+import { assert, assertEquals, assertObjectMatch } from 'asserts'
+import { parseFile, parseToAST } from './parsing.ts'
 
-Deno.test('Parsing', async (t) => {
+Deno.test('Expression parsing', async (t) => {
   await t.step('Empty source returns error', () => {
     assertObjectMatch(parseToAST('  '), { error: 'No expressions found', span: { start: 0, end: 2 } })
   })
@@ -181,4 +181,13 @@ Deno.test('Parsing', async (t) => {
   // await t.step('Needs better errors', () => {
   //   assertEquals('result' in parseToAST('(let [a (fn [n] (if (= n 0) 5 (a (- n 1)))] (a 5)'), true)
   // })
+})
+
+Deno.test('File parsing', async (t) => {
+  await t.step('supports multiple expressions', () => {
+    const results = parseFile('(executable ["module.clsk"]) (+ 1 2)')
+    assert(results.length === 2)
+    assertObjectMatch(results[0], { result: { kind: 'list' } })
+    assertObjectMatch(results[1], { result: { kind: 'list' } })
+  })
 })

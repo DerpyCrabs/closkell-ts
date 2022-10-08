@@ -7,7 +7,7 @@ export type ExecutableModule = {
 
 export type ImportableModule = {
   isExecutable: false
-  exports: { name: string; expression: ParserAST; nameSpan: Span; expressionSpan: Span }[]
+  definitions: { name: string; expression: ParserAST; nameSpan: Span; expressionSpan: Span; isPublic: boolean }[]
 }
 
 export type Module = {
@@ -79,27 +79,38 @@ export function parseModule(url: string, expressions: ParserAST[]): ParseModuleR
     if (maybeBadExport) {
       return { error: `Expected atom, got ${maybeBadExport.kind}`, span: maybeBadExport.span }
     }
+    const exportedDefinitions = exportsVector.value.map((e) => (e as PAtom).value)
+
     const imports = parseImports(header.value.slice(2))
     if ('error' in imports) {
       return imports
     }
+
     const exportBindings = expressions.slice(1)
-    const maybeBadBinding = exportBindings.find((b) => b.kind !== 'list' || b.value[0].kind !== 'atom')
+    const maybeBadBinding = exportBindings.find((b) => b.kind !== 'vector' || b.value[0].kind !== 'atom')
     if (maybeBadBinding) {
       return { error: 'Invalid binding', span: maybeBadBinding.span }
     }
-    const moduleExports = (exportBindings as PList[]).map((b) => ({
+    const moduleDefinitions = (exportBindings as PList[]).map((b) => ({
       name: b.value[0].value as string,
       expression: b.value[1],
       nameSpan: b.value[0].span,
       expressionSpan: b.value[1].span,
+      isPublic: exportedDefinitions.includes(b.value[0].value as string),
     }))
+    const maybeNonexistingExport = exportsVector.value.find(
+      (d) => !moduleDefinitions.map((d) => d.name).includes((d as PAtom).value)
+    )
+    if (maybeNonexistingExport) {
+      return { error: `Can't find definition of ${maybeNonexistingExport}`, span: maybeNonexistingExport.span }
+    }
+
     return {
       result: {
         url,
         isExecutable: false,
         imports: imports.result,
-        exports: moduleExports,
+        definitions: moduleDefinitions,
       },
     }
   }
