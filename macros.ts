@@ -108,7 +108,7 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
             ],
             evaluating
           ),
-        ] as [EvalAST, MacroExpansionResult]
+        ] as const
     )
     const evaluatedBindError = evaluatedBindingPairsWithErrors.find((p) => 'error' in p[1])
     if (evaluatedBindError) {

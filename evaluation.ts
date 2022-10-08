@@ -1,5 +1,6 @@
 import { EvalAST, Binding, Span, EAtom } from './types.ts'
 import * as R from 'ramda'
+import { isBoolean, isFunctionDef, isIfBlock, isLetBlock, isList } from './matchers.ts'
 
 export type EvaluationError = { error: string; span?: Span }
 export type EvaluationResult = { result: EvalAST } | EvaluationError
@@ -8,12 +9,7 @@ export function evaluateExpression(
   expression: EvalAST,
   env: Binding[]
 ): { result: EvalAST } | { error: string; span?: Span } {
-  if (
-    expression.kind === 'list' &&
-    expression.value.length !== 0 &&
-    expression.value[0].kind === 'atom' &&
-    expression.value[0].value === 'fn'
-  ) {
+  if (isFunctionDef(expression)) {
     if (expression.value.length !== 3) {
       return { error: 'Incomplete function definition', span: expression.span }
     }
@@ -29,12 +25,7 @@ export function evaluateExpression(
     return {
       result: { kind: 'function', env: env, body, arguments: (args.value as EAtom[]).map((a) => a.value) },
     }
-  } else if (
-    expression.kind === 'list' &&
-    expression.value.length !== 0 &&
-    expression.value[0].kind === 'atom' &&
-    expression.value[0].value === 'let'
-  ) {
+  } else if (isLetBlock(expression)) {
     if (expression.value.length !== 3) {
       return { error: 'Incomplete let definition', span: expression.span }
     }
@@ -66,7 +57,7 @@ export function evaluateExpression(
               value: p[1],
             })),
           ]),
-        ] as [EvalAST, EvaluationResult]
+        ] as const
     )
     const evaluatedBindError = evaluatedBindingPairs.find((p) => 'error' in p[1])
     if (evaluatedBindError) {
@@ -79,12 +70,7 @@ export function evaluateExpression(
         value: (p[1] as { result: EvalAST }).result,
       })),
     ])
-  } else if (
-    expression.kind === 'list' &&
-    expression.value.length !== 0 &&
-    expression.value[0].kind === 'atom' &&
-    expression.value[0].value === 'if'
-  ) {
+  } else if (isIfBlock(expression)) {
     const equationResult = evaluateExpression(expression.value[1], env)
     if ('error' in equationResult) {
       return equationResult
@@ -100,7 +86,7 @@ export function evaluateExpression(
     } else {
       return evaluateExpression(expression.value[3], env)
     }
-  } else if (expression.kind === 'list') {
+  } else if (isList(expression)) {
     const evaluatedExpressionsWithErrors = expression.value.map((e) => evaluateExpression(e, env))
     const errors = evaluatedExpressionsWithErrors.filter((e) => 'error' in e)
     if (errors.length !== 0) {
@@ -134,12 +120,4 @@ export function evaluateExpression(
   } else {
     return { result: expression }
   }
-}
-
-function isBoolean(e: EvalAST): e is typeof e & { kind: 'atom'; value: 'false' | 'true' } {
-  return e.kind === 'atom' && (e.value === 'false' || e.value === 'true')
-}
-
-function isFunctionDef(e: EvalAST): boolean {
-  return e.kind === 'list' && e.value.length !== 0 && e.value[0].kind === 'atom' && e.value[0].value === 'fn'
 }

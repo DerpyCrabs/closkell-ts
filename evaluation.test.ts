@@ -2,7 +2,7 @@ import { assertEquals } from 'asserts'
 import { evaluateExpression, EvaluationError } from './evaluation.ts'
 import { intrinsics } from './intrinsics.ts'
 import { ASTParsingError, parseToAST } from './parsing.ts'
-import { EvalAST } from './types.ts'
+import { EFunction, EvalAST } from './types.ts'
 
 Deno.test('Primitive functions', async (t) => {
   await t.step('Arithmetic operations', () => {
@@ -19,7 +19,7 @@ Deno.test('Primitive functions', async (t) => {
 
 Deno.test('User-defined functions', async (t) => {
   await t.step('defining functions', () => {
-    const fnDef = (parseAndEval('(fn [a b] (+ a b))') as any).result
+    const fnDef = (parseAndEval('(fn [a b] (+ a b))') as { result: EFunction }).result
     assertEquals(fnDef.kind, 'function')
     assertEquals(fnDef.arguments, ['a', 'b'])
     assertEquals(fnDef.body, {
