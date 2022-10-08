@@ -1,6 +1,6 @@
 import { assert, assertObjectMatch } from 'https://deno.land/std@0.151.0/testing/asserts.ts'
 import { ASTParsingError, parseToAST } from './parsing.ts'
-import { expandMacros, verifyNoMacros } from './macros.ts'
+import { expandMacros, MacroExpansionError, verifyNoMacros } from './macros.ts'
 import { intrinsics } from './intrinsics.ts'
 import { evaluateExpression, EvaluationError } from './evaluation.ts'
 import { EvalAST } from './types.ts'
@@ -15,7 +15,7 @@ function testSample({ source, expected }: { filename: string; source: string; ex
   const parsedAst = parseToAST(source)
   assert('result' in parsedAst, JSON.stringify((parsedAst as ASTParsingError).error))
   const macroExpandedAst = expandMacros(parsedAst.result, intrinsics)
-  assert('result' in macroExpandedAst, JSON.stringify((macroExpandedAst as any).error))
+  assert('result' in macroExpandedAst, JSON.stringify((macroExpandedAst as MacroExpansionError).error))
   const evaledAst = evaluateExpression(verifyNoMacros(macroExpandedAst.result), intrinsics)
   assert('result' in evaledAst, JSON.stringify((evaledAst as EvaluationError).error))
   assertObjectMatch(evaledAst.result, expected)
