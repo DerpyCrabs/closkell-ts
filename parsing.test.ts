@@ -1,9 +1,9 @@
-import { assertEquals } from 'asserts'
+import { assertEquals, assertObjectMatch } from 'asserts'
 import { parseToAST } from './parsing.ts'
 
 Deno.test('Parsing', async (t) => {
   await t.step('Empty source returns error', () => {
-    assertEquals(parseToAST('  '), { error: 'No expressions found', span: { start: 0, end: 2 } })
+    assertObjectMatch(parseToAST('  '), { error: 'No expressions found', span: { start: 0, end: 2 } })
   })
   await t.step('Parse number', () => {
     assertEquals(parseToAST('5'), { result: { kind: 'number', value: 5, span: { start: 0, end: 1 } } })
@@ -12,7 +12,7 @@ Deno.test('Parsing', async (t) => {
   await t.step('Parse string', () => {
     assertEquals(parseToAST('"s"'), { result: { kind: 'string', value: 's', span: { start: 0, end: 3 } } })
     assertEquals(parseToAST('  "ss" '), { result: { kind: 'string', value: 'ss', span: { start: 2, end: 6 } } })
-    assertEquals(parseToAST('  "ss '), { error: "String literal doesn't end", span: { start: 2, end: 6 } })
+    assertObjectMatch(parseToAST('  "ss '), { error: "String literal doesn't end", span: { start: 2, end: 6 } })
   })
   await t.step('Parse atom', () => {
     assertEquals(parseToAST('false'), { result: { kind: 'atom', value: 'false', span: { start: 0, end: 5 } } })
@@ -178,7 +178,7 @@ Deno.test('Parsing', async (t) => {
     })
   })
 
-  // await t.step('Need better errors', () => {
+  // await t.step('Needs better errors', () => {
   //   assertEquals('result' in parseToAST('(let [a (fn [n] (if (= n 0) 5 (a (- n 1)))] (a 5)'), true)
   // })
 })

@@ -10,13 +10,25 @@ export type ASTParsingErrorTypes =
   | "Quote can't be followed by whitespace"
   | "Unquote can't be followed by whitespace"
   | "Skip can't be followed by whitespace"
-export type ASTParsingError = { error: ASTParsingErrorTypes; span: Span }
+export type ASTParsingError = { error: ASTParsingErrorTypes; span: Span; lastPosition: number }
 
 export type ASTParsingResult = { result: ParserAST } | ASTParsingError
 
+export function parseFile(source: string): ASTParsingResult[] {
+  const results = []
+  let position = 0
+  while (position !== source.length) {
+    const result = parseExpression(source, position)
+    const newPosition = 'error' in result ? result.lastPosition : result.result.span.end
+    position = consumeWhitespace(source, newPosition)
+    results.push(result)
+  }
+  return results
+}
+
 export function parseToAST(source: string): ASTParsingResult {
   if (source.trim() === '') {
-    return { error: 'No expressions found', span: { start: 0, end: source.length } }
+    return { error: 'No expressions found', span: { start: 0, end: source.length }, lastPosition: source.length }
   } else {
     return parseExpression(source, 0)
   }
@@ -29,7 +41,11 @@ function parseExpression(source: string, position: number): ASTParsingResult {
     let currentChar = source[currentPosition]
     if (currentPosition === source.length) {
       if (consumptionState === null) {
-        return { error: 'No expressions found', span: { start: position, end: position + source.length } }
+        return {
+          error: 'No expressions found',
+          span: { start: position, end: source.length },
+          lastPosition: source.length,
+        }
       } else {
         return produceExpression(consumptionState.sourceType, consumptionState.source, {
           start: consumptionState.start,
@@ -78,6 +94,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
               start: consumptionState.start,
               end: currentPosition + 1,
             },
+            lastPosition: currentPosition + 1,
           }
         } else {
           return {
@@ -105,6 +122,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
               start: consumptionState.start,
               end: currentPosition + 1,
             },
+            lastPosition: currentPosition + 1,
           }
         } else {
           return {
@@ -132,6 +150,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
               start: consumptionState.start,
               end: currentPosition + 1,
             },
+            lastPosition: currentPosition + 1,
           }
         } else {
           return {
@@ -154,13 +173,18 @@ function parseExpression(source: string, position: number): ASTParsingResult {
         if (endOfLineIndex !== -1) {
           currentPosition = currentPosition + 1 + endOfLineIndex
         } else {
-          return { error: 'No expressions found', span: { start: position, end: source.length } }
+          return {
+            error: 'No expressions found',
+            span: { start: position, end: source.length },
+            lastPosition: source.length,
+          }
         }
       } else if (currentChar === "'") {
         if (isWhitespace(source[currentPosition + 1])) {
           return {
             error: "Quote can't be followed by whitespace",
             span: { start: currentPosition, end: currentPosition + 2 },
+            lastPosition: currentPosition + 2,
           }
         } else {
           const quotedExpression = parseExpression(source, currentPosition + 1)
@@ -184,6 +208,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
           return {
             error: "Unquote can't be followed by whitespace",
             span: { start: currentPosition, end: currentPosition + 2 },
+            lastPosition: currentPosition + 2,
           }
         } else {
           const quotedExpression = parseExpression(source, currentPosition + 1)
@@ -207,6 +232,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
           return {
             error: "Unquote can't be followed by whitespace",
             span: { start: currentPosition, end: currentPosition + 2 },
+            lastPosition: currentPosition + 2,
           }
         } else {
           const quotedExpression = parseExpression(source, currentPosition + 2)
@@ -300,7 +326,7 @@ function produceExpression(sourceType: ParserAST['kind'], source: string, span: 
     if (source[0] === '"' && source[source.length - 1] === '"') {
       return { result: { kind: 'string', value: source.slice(1, -1), span } }
     } else {
-      return { error: "String literal doesn't end", span }
+      return { error: "String literal doesn't end", span, lastPosition: span.end }
     }
   } else if (sourceType === 'atom') {
     return { result: { kind: 'atom', value: source, span } }
