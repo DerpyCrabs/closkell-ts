@@ -74,12 +74,28 @@ function parseExpression(source: string, position: number): ASTParsingResult {
         }
       } else if (consumptionState.sourceType === 'string') {
         if (currentChar === '"') {
-          return produceExpression(consumptionState.sourceType, `${consumptionState.source}${currentChar}`, {
+          // Count backslashes before the current quote
+          let backslashCount = 0
+          let i = currentPosition - 1
+          while (i >= 0 && source[i] === '\\') {
+            backslashCount++
+            i--
+          }
+          if (backslashCount % 2 === 1) {
+            // Odd number of backslashes means the quote is escaped
+            consumptionState.source = `${consumptionState.source}${currentChar}`
+            currentPosition += 1
+            continue
+          }
+          // End of string - include the closing quote
+          return produceExpression(consumptionState.sourceType, `${consumptionState.source}"`, {
             start: consumptionState.start,
             end: currentPosition + 1,
           })
         } else {
           consumptionState.source = `${consumptionState.source}${currentChar}`
+          currentPosition += 1
+          continue
         }
       } else if (consumptionState.sourceType === 'atom') {
         if (isAllowedAtomChar(currentChar)) {
@@ -392,10 +408,31 @@ function isAllowedAtomChar(char: string): boolean {
 
 function produceExpression(sourceType: ParserAST['kind'], source: string, span: Span): ASTParsingResult {
   if (sourceType === 'number') {
-    return { result: { kind: 'number', value: Number(source), span } }
+    const value = parseFloat(source)
+    if (isNaN(value)) {
+      return { error: 'Invalid number format', span, lastPosition: span.end }
+    }
+    return { result: { kind: 'number', value, span } }
   } else if (sourceType === 'string') {
-    if (source[0] === '"' && source[source.length - 1] === '"') {
-      return { result: { kind: 'string', value: source.slice(1, -1), span } }
+    if (source.startsWith('"') && source.endsWith('"')) {
+      const content = source.slice(1, -1)
+      let processed = ''
+      let i = 0
+      while (i < content.length) {
+        if (content[i] === '\\' && i + 1 < content.length) {
+          if (content[i + 1] === '\\' || content[i + 1] === '"') {
+            processed += content[i + 1]
+            i += 2
+          } else {
+            processed += content[i] + content[i + 1]
+            i += 2
+          }
+        } else {
+          processed += content[i]
+          i += 1
+        }
+      }
+      return { result: { kind: 'string', value: processed, span } }
     } else {
       return { error: "String literal doesn't end", span, lastPosition: span.end }
     }

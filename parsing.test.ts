@@ -251,22 +251,14 @@ describe('parsing', () => {
     })
 
     test('parseFile function', () => {
-      const source = '123 "hello" (1 2 3)'
-      const results = parseFile(source)
-      expect(results).toHaveLength(3)
-      expect(results[0]).toEqual({ result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } })
-      expect(results[1]).toEqual({ result: { kind: 'string', value: 'hello', span: { start: 4, end: 11 } } })
-      expect(results[2]).toEqual({
-        result: {
-          kind: 'list',
-          value: [
-            { kind: 'number', value: 1, span: { start: 13, end: 14 } },
-            { kind: 'number', value: 2, span: { start: 15, end: 16 } },
-            { kind: 'number', value: 3, span: { start: 17, end: 18 } }
-          ],
-          span: { start: 12, end: 19 }
-        }
-      })
+      expect(parseFile('123 456')).toEqual([
+        { result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } },
+        { result: { kind: 'number', value: 456, span: { start: 4, end: 7 } } }
+      ])
+      expect(parseFile('123\n456')).toEqual([
+        { result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } },
+        { result: { kind: 'number', value: 456, span: { start: 4, end: 7 } } }
+      ])
     })
 
     test('skip operator', () => {
@@ -306,49 +298,243 @@ describe('parsing', () => {
     })
 
     test('edge cases in number parsing', () => {
-      expect(parseToAST('123.')).toEqual({ result: { kind: 'number', value: 123, span: { start: 0, end: 4 } } })
-      expect(parseToAST('.123')).toEqual({ result: { kind: 'number', value: 0.123, span: { start: 0, end: 4 } } })
-      expect(parseToAST('123e')).toEqual({ result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } })
+      expect(parseToAST('123.')).toEqual({
+        result: { kind: 'number', value: 123, span: { start: 0, end: 4 } }
+      })
+      expect(parseToAST('.123')).toEqual({
+        result: { kind: 'number', value: 0.123, span: { start: 0, end: 4 } }
+      })
+      expect(parseToAST('123e')).toEqual({
+        result: { kind: 'number', value: 123, span: { start: 0, end: 3 } }
+      })
+      expect(parseToAST('123..')).toEqual({
+        result: { kind: 'number', value: 123, span: { start: 0, end: 3 } }
+      })
+      expect(parseToAST('123.0')).toEqual({
+        result: { kind: 'number', value: 123.0, span: { start: 0, end: 5 } }
+      })
+      expect(parseToAST('0.')).toEqual({
+        result: { kind: 'number', value: 0, span: { start: 0, end: 2 } }
+      })
     })
 
-    test('complex quote and unquote expressions', () => {
-      expect(parseToAST("'(1 2 3)")).toEqual({
+    test('edge cases in string parsing', () => {
+      expect(parseToAST('"hello\\"world"')).toEqual({
+        result: { kind: 'string', value: 'hello"world', span: { start: 0, end: 14 } }
+      })
+      expect(parseToAST('"hello\\"\\"world"')).toEqual({
+        result: { kind: 'string', value: 'hello""world', span: { start: 0, end: 16 } }
+      })
+      expect(parseToAST('"\\""')).toEqual({
+        result: { kind: 'string', value: '"', span: { start: 0, end: 4 } }
+      })
+      expect(parseToAST('"\\\\"')).toEqual({
+        result: { kind: 'string', value: '\\', span: { start: 0, end: 4 } }
+      })
+    })
+
+    test('edge cases in atom parsing', () => {
+      expect(parseToAST('+')).toEqual({
+        result: { kind: 'atom', value: '+', span: { start: 0, end: 1 } }
+      })
+      expect(parseToAST('*')).toEqual({
+        result: { kind: 'atom', value: '*', span: { start: 0, end: 1 } }
+      })
+      expect(parseToAST('/')).toEqual({
+        result: { kind: 'atom', value: '/', span: { start: 0, end: 1 } }
+      })
+      expect(parseToAST('$hello')).toEqual({
+        result: { kind: 'atom', value: '$hello', span: { start: 0, end: 6 } }
+      })
+      expect(parseToAST('!hello')).toEqual({
+        result: { kind: 'atom', value: '!hello', span: { start: 0, end: 6 } }
+      })
+      expect(parseToAST('_')).toEqual({
+        result: { kind: 'atom', value: '_', span: { start: 0, end: 1 } }
+      })
+      expect(parseToAST('?')).toEqual({
+        result: { kind: 'atom', value: '?', span: { start: 0, end: 1 } }
+      })
+    })
+
+    test('edge cases in list parsing', () => {
+      expect(parseToAST('(1 . 2)')).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'number', value: 1, span: { start: 1, end: 2 } },
+            { kind: 'atom', value: '.', span: { start: 3, end: 4 } },
+            { kind: 'number', value: 2, span: { start: 5, end: 6 } }
+          ],
+          span: { start: 0, end: 7 }
+        }
+      })
+      expect(parseToAST('(1 ; comment\n2)')).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'number', value: 1, span: { start: 1, end: 2 } },
+            { kind: 'number', value: 2, span: { start: 13, end: 14 } }
+          ],
+          span: { start: 0, end: 15 }
+        }
+      })
+      expect(parseToAST('((()))')).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            {
+              kind: 'list',
+              value: [
+                { kind: 'list', value: [], span: { start: 2, end: 4 } }
+              ],
+              span: { start: 1, end: 5 }
+            }
+          ],
+          span: { start: 0, end: 6 }
+        }
+      })
+      expect(parseToAST('(1 2 . 3)')).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'number', value: 1, span: { start: 1, end: 2 } },
+            { kind: 'number', value: 2, span: { start: 3, end: 4 } },
+            { kind: 'atom', value: '.', span: { start: 5, end: 6 } },
+            { kind: 'number', value: 3, span: { start: 7, end: 8 } }
+          ],
+          span: { start: 0, end: 9 }
+        }
+      })
+    })
+
+    test('edge cases in vector parsing', () => {
+      expect(parseToAST('[1 . 2]')).toEqual({
+        result: {
+          kind: 'vector',
+          value: [
+            { kind: 'number', value: 1, span: { start: 1, end: 2 } },
+            { kind: 'atom', value: '.', span: { start: 3, end: 4 } },
+            { kind: 'number', value: 2, span: { start: 5, end: 6 } }
+          ],
+          span: { start: 0, end: 7 }
+        }
+      })
+      expect(parseToAST('[[[]]]')).toEqual({
+        result: {
+          kind: 'vector',
+          value: [
+            {
+              kind: 'vector',
+              value: [
+                { kind: 'vector', value: [], span: { start: 2, end: 4 } }
+              ],
+              span: { start: 1, end: 5 }
+            }
+          ],
+          span: { start: 0, end: 6 }
+        }
+      })
+      expect(parseToAST('[1 2 . 3]')).toEqual({
+        result: {
+          kind: 'vector',
+          value: [
+            { kind: 'number', value: 1, span: { start: 1, end: 2 } },
+            { kind: 'number', value: 2, span: { start: 3, end: 4 } },
+            { kind: 'atom', value: '.', span: { start: 5, end: 6 } },
+            { kind: 'number', value: 3, span: { start: 7, end: 8 } }
+          ],
+          span: { start: 0, end: 9 }
+        }
+      })
+    })
+
+    test('edge cases in map parsing', () => {
+      expect(parseToAST('{:a 1 :b 2 :c 3}')).toEqual({
+        result: {
+          kind: 'map',
+          value: [
+            { kind: 'atom', value: ':a', span: { start: 1, end: 3 } },
+            { kind: 'number', value: 1, span: { start: 4, end: 5 } },
+            { kind: 'atom', value: ':b', span: { start: 6, end: 8 } },
+            { kind: 'number', value: 2, span: { start: 9, end: 10 } },
+            { kind: 'atom', value: ':c', span: { start: 11, end: 13 } },
+            { kind: 'number', value: 3, span: { start: 14, end: 15 } }
+          ],
+          span: { start: 0, end: 16 }
+        }
+      })
+      expect(parseToAST('{:a 1 ; comment\n:b 2}')).toEqual({
+        result: {
+          kind: 'map',
+          value: [
+            { kind: 'atom', value: ':a', span: { start: 1, end: 3 } },
+            { kind: 'number', value: 1, span: { start: 4, end: 5 } },
+            { kind: 'atom', value: ':b', span: { start: 16, end: 18 } },
+            { kind: 'number', value: 2, span: { start: 19, end: 20 } }
+          ],
+          span: { start: 0, end: 21 }
+        }
+      })
+    })
+
+    test('edge cases in quote/unquote parsing', () => {
+      expect(parseToAST("'hello")).toEqual({
         result: {
           kind: 'list',
           value: [
             { kind: 'atom', value: 'quote', span: { start: 0, end: 1 } },
-            {
-              kind: 'list',
-              value: [
-                { kind: 'number', value: 1, span: { start: 2, end: 3 } },
-                { kind: 'number', value: 2, span: { start: 4, end: 5 } },
-                { kind: 'number', value: 3, span: { start: 6, end: 7 } }
-              ],
-              span: { start: 1, end: 8 }
-            }
+            { kind: 'atom', value: 'hello', span: { start: 1, end: 6 } }
           ],
-          span: { start: 0, end: 8 }
+          span: { start: 0, end: 6 }
         }
       })
-
-      expect(parseToAST('~(1 2 3)')).toEqual({
+      expect(parseToAST('~hello')).toEqual({
         result: {
           kind: 'list',
           value: [
             { kind: 'atom', value: 'unquote', span: { start: 0, end: 1 } },
-            {
-              kind: 'list',
-              value: [
-                { kind: 'number', value: 1, span: { start: 2, end: 3 } },
-                { kind: 'number', value: 2, span: { start: 4, end: 5 } },
-                { kind: 'number', value: 3, span: { start: 6, end: 7 } }
-              ],
-              span: { start: 1, end: 8 }
-            }
+            { kind: 'atom', value: 'hello', span: { start: 1, end: 6 } }
           ],
-          span: { start: 0, end: 8 }
+          span: { start: 0, end: 6 }
         }
       })
+      expect(parseToAST("'; comment\nhello")).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'atom', value: 'quote', span: { start: 0, end: 1 } },
+            { kind: 'atom', value: 'hello', span: { start: 11, end: 16 } }
+          ],
+          span: { start: 0, end: 16 }
+        }
+      })
+      expect(parseToAST('~; comment\nhello')).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'atom', value: 'unquote', span: { start: 0, end: 1 } },
+            { kind: 'atom', value: 'hello', span: { start: 11, end: 16 } }
+          ],
+          span: { start: 0, end: 16 }
+        }
+      })
+    })
+
+    test('parseFile function edge cases', () => {
+      expect(parseFile('123 456')).toEqual([
+        { result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } },
+        { result: { kind: 'number', value: 456, span: { start: 4, end: 7 } } }
+      ])
+      expect(parseFile('123\n456')).toEqual([
+        { result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } },
+        { result: { kind: 'number', value: 456, span: { start: 4, end: 7 } } }
+      ])
+      expect(parseFile('; comment\n123\n; another comment\n456')).toEqual([
+        { result: { kind: 'number', value: 123, span: { start: 10, end: 13 } } },
+        { result: { kind: 'number', value: 456, span: { start: 32, end: 35 } } }
+      ])
+      expect(parseFile('')).toEqual([])
     })
   })
 })
