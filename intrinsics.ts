@@ -79,16 +79,12 @@ function nAryNumberBooleanOperation(binaryOp: (a: number, b: number) => boolean)
     kind: 'intrinsicFunction',
     value: (args: EvalAST[]) => {
       if (args.every((a) => a.kind === 'number')) {
+        const numbers = args.map((a) => (a as ENumber).value);
+        const result = R.all(([a, b]) => binaryOp(a, b), R.zip(numbers, numbers.slice(1)));
         return {
           result: {
             kind: 'atom',
-            value: R.reduce(
-              binaryOp,
-              (args[0] as ENumber).value,
-              args.slice(1).map((a) => (a as ENumber).value)
-            )
-              ? 'true'
-              : 'false',
+            value: result ? 'true' : 'false',
           },
         }
       } else {

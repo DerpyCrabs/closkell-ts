@@ -1,18 +1,28 @@
 import { parseToAST } from './parsing.ts'
-import { parse } from 'flags'
 import { evaluateExpression } from './evaluation.ts'
 import { intrinsics } from './intrinsics.ts'
 
-const args = parse(Deno.args, {
-  string: ['i', 'o'],
-  boolean: ['c', 'm', 'p'],
-  alias: { i: 'input', o: 'output', c: 'compile', m: 'macros', p: 'parserOutput' },
-})
+const args = process.argv.slice(2)
+const options: Record<string, string | boolean> = {}
+let currentOption = ''
 
-if (args.input) {
-  const fileContents = await Deno.readTextFile(args.input)
+for (const arg of args) {
+  if (arg.startsWith('--')) {
+    currentOption = arg.slice(2)
+    options[currentOption] = true
+  } else if (arg.startsWith('-')) {
+    currentOption = arg.slice(1)
+    options[currentOption] = true
+  } else if (currentOption) {
+    options[currentOption] = arg
+    currentOption = ''
+  }
+}
+
+if (options.input) {
+  const fileContents = await Bun.file(options.input as string).text()
   const parsedAst = parseToAST(fileContents)
-  if (args.parserOutput) {
+  if (options.parserOutput) {
     console.dir(parsedAst)
   }
   if ('error' in parsedAst) {

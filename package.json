@@ -1,0 +1,16 @@
+{
+    "name": "closkell-ts",
+    "version": "1.0.0",
+    "type": "module",
+    "scripts": {
+        "test": "bun test",
+        "start": "bun run main.ts"
+    },
+    "dependencies": {
+        "@types/ramda": "^0.30.2",
+        "ramda": "^0.29.1"
+    },
+    "devDependencies": {
+        "bun-types": "latest"
+    }
+}

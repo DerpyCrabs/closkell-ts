@@ -1,28 +1,28 @@
-import { assertEquals } from 'asserts'
+import { expect, test } from 'bun:test'
 import { evaluateExpression, EvaluationError } from './evaluation.ts'
 import { intrinsics } from './intrinsics.ts'
 import { ASTParsingError, parseToAST } from './parsing.ts'
 import { EFunction, EvalAST } from './types.ts'
 
-Deno.test('Primitive functions', async (t) => {
-  await t.step('Arithmetic operations', () => {
-    assertEquals(parseAndEval('(+ 3 (- 5 2 1))'), { result: { kind: 'number', value: 5 } })
-    assertEquals(parseAndEval('(* 3 2 (/ 6 2 1))'), { result: { kind: 'number', value: 18 } })
-    assertEquals(parseAndEval('(> 5 1)'), { result: { kind: 'atom', value: 'true' } })
-    assertEquals(parseAndEval('(< 5 1)'), { result: { kind: 'atom', value: 'false' } })
+test('Primitive functions', () => {
+  test('Arithmetic operations', () => {
+    expect(parseAndEval('(+ 3 (- 5 2 1))')).toEqual({ result: { kind: 'number', value: 5 } })
+    expect(parseAndEval('(* 3 2 (/ 6 2 1))')).toEqual({ result: { kind: 'number', value: 18 } })
+    expect(parseAndEval('(> 5 1)')).toEqual({ result: { kind: 'atom', value: 'true' } })
+    expect(parseAndEval('(< 5 1)')).toEqual({ result: { kind: 'atom', value: 'false' } })
   })
 
-  await t.step('String operations', () => {
-    assertEquals(parseAndEval('(string/concat "t" "d" "k")'), { result: { kind: 'string', value: 'tdk' } })
+  test('String operations', () => {
+    expect(parseAndEval('(string/concat "t" "d" "k")')).toEqual({ result: { kind: 'string', value: 'tdk' } })
   })
 })
 
-Deno.test('User-defined functions', async (t) => {
-  await t.step('defining functions', () => {
+test('User-defined functions', () => {
+  test('defining functions', () => {
     const fnDef = (parseAndEval('(fn [a b] (+ a b))') as { result: EFunction }).result
-    assertEquals(fnDef.kind, 'function')
-    assertEquals(fnDef.arguments, ['a', 'b'])
-    assertEquals(fnDef.body, {
+    expect(fnDef.kind).toBe('function')
+    expect(fnDef.arguments).toEqual(['a', 'b'])
+    expect(fnDef.body).toEqual({
       kind: 'list',
       span: {
         end: 17,
@@ -57,14 +57,14 @@ Deno.test('User-defined functions', async (t) => {
     })
   })
 
-  await t.step('calling defined function', () => {
-    assertEquals(parseAndEval('((fn [a b] (+ a b)) 2 3)'), { result: { kind: 'number', value: 5 } })
+  test('calling defined function', () => {
+    expect(parseAndEval('((fn [a b] (+ a b)) 2 3)')).toEqual({ result: { kind: 'number', value: 5 } })
   })
 })
 
-Deno.test('Booleans', async (t) => {
-  await t.step('using if', () => {
-    assertEquals(parseAndEval('(if true 5 3)'), {
+test('Booleans', () => {
+  test('using if', () => {
+    expect(parseAndEval('(if true 5 3)')).toEqual({
       result: {
         kind: 'number',
         span: {
@@ -74,37 +74,37 @@ Deno.test('Booleans', async (t) => {
         value: 5,
       },
     })
-    assertEquals(parseAndEval('(if (if true false true) 5 3)'), {
+    expect(parseAndEval('(if (if true false true) 5 3)')).toEqual({
       result: { kind: 'number', value: 3, span: { start: 27, end: 28 } },
     })
-    assertEquals(parseAndEval('(if 1 5 3)'), {
+    expect(parseAndEval('(if 1 5 3)')).toEqual({
       error: 'Expected true or false, got number',
       span: { start: 4, end: 5 },
     })
 
-    assertEquals(parseAndEval('(if (= 5 5) 5 3)'), {
+    expect(parseAndEval('(if (= 5 5) 5 3)')).toEqual({
       result: { kind: 'number', value: 5, span: { start: 12, end: 13 } },
     })
   })
 })
 
-Deno.test('let expression', async (t) => {
-  await t.step('single binding let', () => {
-    assertEquals(parseAndEval('(let [a 5] a)'), { result: { kind: 'number', value: 5, span: { start: 8, end: 9 } } })
+test('let expression', () => {
+  test('single binding let', () => {
+    expect(parseAndEval('(let [a 5] a)')).toEqual({ result: { kind: 'number', value: 5, span: { start: 8, end: 9 } } })
 
-    assertEquals(parseAndEval('(let [a (fn [a] (+ a a))] (a 5))'), { result: { kind: 'number', value: 10 } })
+    expect(parseAndEval('(let [a (fn [a] (+ a a))] (a 5))')).toEqual({ result: { kind: 'number', value: 10 } })
   })
 
-  await t.step('multiple bindings let', () => {
-    assertEquals(parseAndEval('(let [a 5 b 10] (+ a b))'), { result: { kind: 'number', value: 15 } })
+  test('multiple bindings let', () => {
+    expect(parseAndEval('(let [a 5 b 10] (+ a b))')).toEqual({ result: { kind: 'number', value: 15 } })
 
-    assertEquals(parseAndEval('(let [a (fn [a] (+ a a)) b (fn [a b] (+ a b))] (b (a 5) 7))'), {
+    expect(parseAndEval('(let [a (fn [a] (+ a a)) b (fn [a b] (+ a b))] (b (a 5) 7))')).toEqual({
       result: { kind: 'number', value: 17 },
     })
   })
 
-  await t.step('recursive function definition in let', () => {
-    assertEquals(parseAndEval('(let [a (fn [n] (if (= n 0) 7 (+ 1 (a (- n 1)))))] (a 5))'), {
+  test('recursive function definition in let', () => {
+    expect(parseAndEval('(let [a (fn [n] (if (= n 0) 7 (+ 1 (a (- n 1)))))] (a 5))')).toEqual({
       result: { kind: 'number', value: 12 },
     })
   })

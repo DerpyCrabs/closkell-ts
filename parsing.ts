@@ -1,5 +1,4 @@
 import { ParserAST, Span } from './types.ts'
-import { red, bold } from 'https://deno.land/std@0.153.0/fmt/colors.ts'
 
 export type ASTParsingErrorTypes =
   | 'No expressions found'
@@ -265,7 +264,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
         consumptionState = { start: currentPosition, sourceType: 'atom', source: currentChar }
       } else {
         console.log(source.slice(0, currentPosition))
-        console.log(red(bold(currentChar)))
+        console.log(`\x1b[1;31m${currentChar}\x1b[0m`)
         console.log(source.slice(currentPosition + 1))
         throw new Error(`parseExpression: not implemented`)
       }

@@ -88,7 +88,7 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
         span: expression.value[1].span,
       }
     }
-    const bindingPairs: [MacrosAST, MacrosAST][] = R.splitEvery(2, expression.value[1].value)
+    const bindingPairs: [MacrosAST, MacrosAST][] = R.splitEvery(2, expression.value[1].value) as [MacrosAST, MacrosAST][]
     const incorrectBind = bindingPairs.map((p) => p[0]).find((b) => b.kind !== 'atom')
     if (incorrectBind) {
       return { error: `Expected atom got ${incorrectBind.kind}`, span: incorrectBind.span }

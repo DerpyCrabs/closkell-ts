@@ -1,7 +1,0 @@
-{
-  "imports": {
-    "asserts": "https://deno.land/std@0.151.0/testing/asserts.ts",
-    "ramda": "https://deno.land/x/ramda@v0.27.2/mod.ts",
-    "flags": "https://deno.land/std@0.149.0/flags/mod.ts"
-  }
-}

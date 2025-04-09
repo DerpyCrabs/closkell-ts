@@ -7,12 +7,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - uses: denoland/setup-deno@v1.1.0
+      - uses: oven-sh/setup-bun@v1
         with:
-          deno-version: v1.x
+          bun-version: latest
 
-      - run: deno lint
+      - run: bun install
 
-      - run: deno test --allow-all --coverage=cov/
-
-      - run: deno coverage --lcov cov/ > cov.lcov
+      - run: bun test --coverage

@@ -41,7 +41,7 @@ export function evaluateExpression(
         span: expression.value[1].span,
       }
     }
-    const bindingPairs: [EvalAST, EvalAST][] = R.splitEvery(2, expression.value[1].value)
+    const bindingPairs: [EvalAST, EvalAST][] = R.splitEvery(2, expression.value[1].value) as [EvalAST, EvalAST][]
     const incorrectBind = bindingPairs.map((p) => p[0]).find((b) => b.kind !== 'atom')
     if (incorrectBind) {
       return { error: `Expected atom got ${incorrectBind.kind}`, span: incorrectBind.span }
