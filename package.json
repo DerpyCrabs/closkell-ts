@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "test": "bun test",
+        "test": "bun test --coverage --exclude '**/*.test.ts'",
         "start": "bun run main.ts"
     },
     "dependencies": {
