@@ -212,5 +212,50 @@ describe('parsing', () => {
         lastPosition: 0
       })
     })
+
+    test('quote with whitespace', () => {
+      expect(parseToAST("' hello")).toEqual({
+        error: "Quote can't be followed by whitespace",
+        span: { start: 0, end: 2 },
+        lastPosition: 2
+      })
+    })
+
+    test('unquote with whitespace', () => {
+      expect(parseToAST('~ hello')).toEqual({
+        error: "Unquote can't be followed by whitespace",
+        span: { start: 0, end: 2 },
+        lastPosition: 2
+      })
+    })
+
+    test('invalid number formats', () => {
+      expect(parseToAST('123.45.67')).toEqual({
+        result: { kind: 'number', value: 123.45, span: { start: 0, end: 6 } }
+      })
+      expect(parseToAST('123a')).toEqual({
+        result: { kind: 'number', value: 123, span: { start: 0, end: 3 } }
+      })
+    })
+
+    test('invalid atom characters', () => {
+      expect(parseToAST('hello@world')).toEqual({
+        result: { kind: 'atom', value: 'hello', span: { start: 0, end: 5 } }
+      })
+      expect(parseToAST('hello#world')).toEqual({
+        result: { kind: 'atom', value: 'hello', span: { start: 0, end: 5 } }
+      })
+    })
+
+    test('comments', () => {
+      expect(parseToAST('; comment\n123')).toEqual({
+        result: { kind: 'number', value: 123, span: { start: 10, end: 13 } }
+      })
+      expect(parseToAST('; comment')).toEqual({
+        error: 'No expressions found',
+        span: { start: 0, end: 9 },
+        lastPosition: 9
+      })
+    })
   })
 })

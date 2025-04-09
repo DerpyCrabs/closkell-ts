@@ -1,0 +1,5 @@
+; expected {"kind": "number", "value": 15}
+(let
+    [double (macro [x] ~(+ ~x ~x))]
+    (double 7.5)
+) 

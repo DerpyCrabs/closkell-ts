@@ -1,0 +1,7 @@
+; expected {"kind": "number", "value": 42}
+(let
+    [add (fn [a b] (+ a b))
+     mul (fn [a b] (* a b))
+     square (fn [x] (mul x x))]
+    (add (square 6) (mul 2 3))
+) 

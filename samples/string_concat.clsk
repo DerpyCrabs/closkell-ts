@@ -1,0 +1,6 @@
+; expected {"kind": "string", "value": "Hello, World!"}
+(let
+    [greet (fn [name]
+        (string/concat "Hello, " name "!"))]
+    (greet "World")
+) 

@@ -1,0 +1,5 @@
+; expected {"kind": "number", "value": 3}
+(let
+    [person {:name "John" :age 30 :height 180}]
+    (get person :age)
+) 
