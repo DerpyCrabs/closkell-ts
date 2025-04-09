@@ -9,6 +9,7 @@ export type ASTParsingErrorTypes =
   | "Quote can't be followed by whitespace"
   | "Unquote can't be followed by whitespace"
   | "Skip can't be followed by whitespace"
+  | "Invalid number format"
 export type ASTParsingError = { error: ASTParsingErrorTypes; span: Span; lastPosition: number }
 
 export type ASTParsingResult = { result: ParserAST } | ASTParsingError
@@ -53,7 +54,7 @@ function parseExpression(source: string, position: number): ASTParsingResult {
       }
     } else if (consumptionState !== null) {
       if (consumptionState.sourceType === 'number') {
-        if (isNumber(currentChar)) {
+        if (isNumber(currentChar) || (currentChar === '.' && !consumptionState.source.includes('.'))) {
           consumptionState.source = `${consumptionState.source}${currentChar}`
         } else {
           return produceExpression(consumptionState.sourceType, consumptionState.source, {
@@ -178,6 +179,38 @@ function parseExpression(source: string, position: number): ASTParsingResult {
             lastPosition: source.length,
           }
         }
+      } else if (currentChar === '-') {
+        // Check if this is a negative number or a minus operator
+        const nextChar = source[currentPosition + 1]
+        const prevChar = currentPosition > 0 ? source[currentPosition - 1] : null
+        
+        if (isNumber(nextChar)) {
+          // It's a negative number, start consuming it
+          consumptionState = { source: currentChar, start: currentPosition, sourceType: 'number' }
+        } else if (nextChar === '-') {
+          // Double minus sign is invalid
+          return {
+            error: 'Invalid number format',
+            span: { start: currentPosition, end: currentPosition + 2 },
+            lastPosition: currentPosition + 2,
+          }
+        } else if ((isWhitespace(nextChar) || nextChar === undefined) && prevChar !== '(') {
+          // Standalone minus is invalid, but allow it if it's the first character after an opening parenthesis
+          return {
+            error: 'Invalid number format',
+            span: { start: currentPosition, end: currentPosition + 1 },
+            lastPosition: currentPosition + 1,
+          }
+        } else {
+          // It's a minus operator in an expression
+          return {
+            result: {
+              kind: 'atom',
+              value: '-',
+              span: { start: currentPosition, end: currentPosition + 1 }
+            }
+          }
+        }
       } else if (currentChar === "'") {
         if (isWhitespace(source[currentPosition + 1])) {
           return {
@@ -256,8 +289,8 @@ function parseExpression(source: string, position: number): ASTParsingResult {
         consumptionState = { start: currentPosition, sourceType: 'vector', source: currentChar }
       } else if (currentChar === '{') {
         consumptionState = { start: currentPosition, sourceType: 'map', source: currentChar }
-      } else if (isNumber(currentChar)) {
-        consumptionState = { start: currentPosition, sourceType: 'number', source: currentChar }
+      } else if (isNumberStart(currentChar)) {
+        consumptionState = { source: currentChar, start: currentPosition, sourceType: 'number' }
       } else if (currentChar === '"') {
         consumptionState = { start: currentPosition, sourceType: 'string', source: currentChar }
       } else if (isAllowedAtomFirstChar(currentChar)) {
@@ -306,8 +339,12 @@ function isWhitespace(source: string): boolean {
   return [' ', '\n', '\t', ',', '\r'].includes(source)
 }
 
-function isNumber(source: string): boolean {
-  return /[0-9]/.test(source)
+function isNumber(char: string): boolean {
+  return /[0-9]/.test(char)
+}
+
+function isNumberStart(char: string): boolean {
+  return /[0-9]/.test(char)
 }
 
 function isAllowedAtomFirstChar(char: string): boolean {

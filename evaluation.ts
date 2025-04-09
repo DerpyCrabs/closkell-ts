@@ -94,7 +94,7 @@ export function evaluateExpression(
     }
     const evaluatedExpressions = (evaluatedExpressionsWithErrors as { result: EvalAST }[]).map((e) => e.result)
     if (evaluatedExpressions[0].kind !== 'function' && evaluatedExpressions[0].kind !== 'intrinsicFunction') {
-      return { error: 'Expression not callable', span: evaluatedExpressions[0].span }
+      return { error: `Expression not callable: ${evaluatedExpressions[0].kind}, ${JSON.stringify(expression.value)}`, span: evaluatedExpressions[0].span }
     }
     const fn = evaluatedExpressions[0]
     const args = evaluatedExpressions.slice(1)
