@@ -4,6 +4,15 @@ import { expandMacros, MacroExpansionError, verifyNoMacros } from './macros.ts'
 import { ASTParsingError, parseToAST } from './parsing.ts'
 import { MacrosAST, MMacro, ParserAST } from './types.ts'
 
+type MacroExpansionSuccess = { result: MacrosAST }
+
+function expectParseSuccess(result: ASTParsingError | { result: ParserAST }): ParserAST {
+  if ('error' in result) {
+    throw new Error(`Expected successful parse, got error: ${result.error}`)
+  }
+  return result.result
+}
+
 function convertToMacrosAST(ast: ParserAST): MacrosAST {
   switch (ast.kind) {
     case 'string':
@@ -1138,3 +1147,113 @@ test('Edge cases in macro expansion', () => {
     })
   })
 })
+
+test('Quote and unquote error handling', () => {
+  const quoteWithTooManyArgs = expectParseSuccess(parseToAST('(quote 1 2)'));
+  const quoteResult = expandMacros(quoteWithTooManyArgs, [], false);
+  expect('error' in quoteResult).toBe(true);
+  expect((quoteResult as MacroExpansionError).error).toBe('Expected 1 argument, got 2');
+
+  const unquoteWithTooManyArgs = expectParseSuccess(parseToAST('(unquote 1 2)'));
+  const unquoteResult = expandMacros(unquoteWithTooManyArgs, [], false);
+  expect('error' in unquoteResult).toBe(true);
+  expect((unquoteResult as MacroExpansionError).error).toBe('Expected 1 argument, got 2');
+});
+
+test('Function definition error cases', () => {
+  const incompleteFn = expectParseSuccess(parseToAST('(fn [x])'));
+  const incompleteResult = expandMacros(incompleteFn, [], false);
+  expect('error' in incompleteResult).toBe(true);
+  expect((incompleteResult as MacroExpansionError).error).toBe('Incomplete function definition');
+
+  const nonVectorArgs = expectParseSuccess(parseToAST('(fn (x) x)'));
+  const nonVectorResult = expandMacros(nonVectorArgs, [], false);
+  expect('error' in nonVectorResult).toBe(true);
+  expect((nonVectorResult as MacroExpansionError).error).toBe('Function arguments should be in vector');
+
+  const invalidArg = expectParseSuccess(parseToAST('(fn [1] x)'));
+  const invalidArgResult = expandMacros(invalidArg, [], false);
+  expect('error' in invalidArgResult).toBe(true);
+  expect((invalidArgResult as MacroExpansionError).error).toBe('Invalid argument');
+});
+
+test('Let expression error cases', () => {
+  const incompleteLet = expectParseSuccess(parseToAST('(let [x 1])'));
+  const incompleteLetResult = expandMacros(incompleteLet, [], false);
+  expect('error' in incompleteLetResult).toBe(true);
+  expect((incompleteLetResult as MacroExpansionError).error).toBe('Incomplete let definition');
+
+  const nonVectorBindings = expectParseSuccess(parseToAST('(let (x 1) x)'));
+  const nonVectorBindingsResult = expandMacros(nonVectorBindings, [], false);
+  expect('error' in nonVectorBindingsResult).toBe(true);
+  expect((nonVectorBindingsResult as MacroExpansionError).error).toBe('Expected vector as first let argument, got list');
+
+  const oddBindings = expectParseSuccess(parseToAST('(let [x] x)'));
+  const oddBindingsResult = expandMacros(oddBindings, [], false);
+  expect('error' in oddBindingsResult).toBe(true);
+  expect((oddBindingsResult as MacroExpansionError).error).toBe('Incomplete let binding');
+
+  const nonAtomBinding = expectParseSuccess(parseToAST('(let [1 2] x)'));
+  const nonAtomBindingResult = expandMacros(nonAtomBinding, [], false);
+  expect('error' in nonAtomBindingResult).toBe(true);
+  expect((nonAtomBindingResult as MacroExpansionError).error).toBe('Expected atom got number');
+});
+
+test('If expression evaluation', () => {
+  const nonBooleanCondition = expectParseSuccess(parseToAST('(if 1 2 3)'));
+  const nonBooleanResult = expandMacros(nonBooleanCondition, [], true);
+  expect('error' in nonBooleanResult).toBe(true);
+  expect((nonBooleanResult as MacroExpansionError).error).toBe('Expected true or false, got number');
+
+  const wrongArgCount = expectParseSuccess(parseToAST('(if true 1)'));
+  const wrongArgCountResult = expandMacros(wrongArgCount, [], true);
+  expect('error' in wrongArgCountResult).toBe(true);
+  expect((wrongArgCountResult as MacroExpansionError).error).toBe('If takes 3 arguments, got 2');
+
+  const trueCondition = expectParseSuccess(parseToAST('(if true 1 2)'));
+  const trueResult = expandMacros(trueCondition, [], true);
+  expect('error' in trueResult).toBe(false);
+  const trueValue = (trueResult as MacroExpansionSuccess).result;
+  expect(trueValue.kind).toBe('number');
+  expect((trueValue as { kind: 'number', value: number }).value).toBe(1);
+
+  const falseCondition = expectParseSuccess(parseToAST('(if false 1 2)'));
+  const falseResult = expandMacros(falseCondition, [], true);
+  expect('error' in falseResult).toBe(false);
+  const falseValue = (falseResult as MacroExpansionSuccess).result;
+  expect(falseValue.kind).toBe('number');
+  expect((falseValue as { kind: 'number', value: number }).value).toBe(2);
+});
+
+test('Nested macro definitions', () => {
+  const nestedMacro = expectParseSuccess(parseToAST(`
+    (defmacro outer [x]
+      (quote
+        (defmacro inner [y]
+          (quote (+ x y)))))
+  `));
+  const outerResult = expandMacros(nestedMacro, [], false);
+  expect('error' in outerResult).toBe(false);
+  const outerMacro = (outerResult as MacroExpansionSuccess).result as MMacro;
+  expect(outerMacro.kind).toBe('macro');
+
+  const useOuterMacro = expectParseSuccess(parseToAST('(outer 1)'));
+  const innerMacroResult = expandMacros(useOuterMacro, [
+    { name: 'outer', value: outerMacro }
+  ], true);
+  expect('error' in innerMacroResult).toBe(false);
+  const innerMacro = (innerMacroResult as MacroExpansionSuccess).result as MMacro;
+  expect(innerMacro.kind).toBe('macro');
+});
+
+test('Function call error handling', () => {
+  const nonCallable = expectParseSuccess(parseToAST('(1 2 3)'));
+  const nonCallableResult = expandMacros(nonCallable, [], true);
+  expect('error' in nonCallableResult).toBe(true);
+  expect((nonCallableResult as MacroExpansionError).error).toBe('Expression not callable');
+
+  const wrongArgCountFn = expectParseSuccess(parseToAST('((fn [x] x) 1 2)'));
+  const wrongArgCountResult = expandMacros(wrongArgCountFn, [], true);
+  expect('error' in wrongArgCountResult).toBe(true);
+  expect((wrongArgCountResult as MacroExpansionError).error).toBe('Expected 1 arguments, got 2');
+});

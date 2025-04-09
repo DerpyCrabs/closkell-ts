@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { parseToAST } from './parsing'
-import { ParserAST } from './types'
+import { parseToAST, parseFile } from './parsing'
 
 describe('parsing', () => {
   describe('numbers', () => {
@@ -248,13 +247,107 @@ describe('parsing', () => {
     })
 
     test('comments', () => {
-      expect(parseToAST('; comment\n123')).toEqual({
-        result: { kind: 'number', value: 123, span: { start: 10, end: 13 } }
+      expect(parseToAST('; comment\n123')).toEqual({ result: { kind: 'number', value: 123, span: { start: 10, end: 13 } } })
+    })
+
+    test('parseFile function', () => {
+      const source = '123 "hello" (1 2 3)'
+      const results = parseFile(source)
+      expect(results).toHaveLength(3)
+      expect(results[0]).toEqual({ result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } })
+      expect(results[1]).toEqual({ result: { kind: 'string', value: 'hello', span: { start: 4, end: 11 } } })
+      expect(results[2]).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'number', value: 1, span: { start: 13, end: 14 } },
+            { kind: 'number', value: 2, span: { start: 15, end: 16 } },
+            { kind: 'number', value: 3, span: { start: 17, end: 18 } }
+          ],
+          span: { start: 12, end: 19 }
+        }
       })
-      expect(parseToAST('; comment')).toEqual({
-        error: 'No expressions found',
-        span: { start: 0, end: 9 },
-        lastPosition: 9
+    })
+
+    test('skip operator', () => {
+      expect(parseToAST('#123')).toEqual({ result: { kind: 'atom', value: '#123', span: { start: 0, end: 4 } } })
+      expect(parseToAST('# hello')).toEqual({
+        error: "Skip can't be followed by whitespace",
+        span: { start: 0, end: 2 },
+        lastPosition: 2
+      })
+    })
+
+    test('complex nested expressions', () => {
+      expect(parseToAST('(1 [2 {:a 3}])')).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'number', value: 1, span: { start: 1, end: 2 } },
+            {
+              kind: 'vector',
+              value: [
+                { kind: 'number', value: 2, span: { start: 4, end: 5 } },
+                {
+                  kind: 'map',
+                  value: [
+                    { kind: 'atom', value: ':a', span: { start: 7, end: 9 } },
+                    { kind: 'number', value: 3, span: { start: 10, end: 11 } }
+                  ],
+                  span: { start: 6, end: 12 }
+                }
+              ],
+              span: { start: 3, end: 13 }
+            }
+          ],
+          span: { start: 0, end: 14 }
+        }
+      })
+    })
+
+    test('edge cases in number parsing', () => {
+      expect(parseToAST('123.')).toEqual({ result: { kind: 'number', value: 123, span: { start: 0, end: 4 } } })
+      expect(parseToAST('.123')).toEqual({ result: { kind: 'number', value: 0.123, span: { start: 0, end: 4 } } })
+      expect(parseToAST('123e')).toEqual({ result: { kind: 'number', value: 123, span: { start: 0, end: 3 } } })
+    })
+
+    test('complex quote and unquote expressions', () => {
+      expect(parseToAST("'(1 2 3)")).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'atom', value: 'quote', span: { start: 0, end: 1 } },
+            {
+              kind: 'list',
+              value: [
+                { kind: 'number', value: 1, span: { start: 2, end: 3 } },
+                { kind: 'number', value: 2, span: { start: 4, end: 5 } },
+                { kind: 'number', value: 3, span: { start: 6, end: 7 } }
+              ],
+              span: { start: 1, end: 8 }
+            }
+          ],
+          span: { start: 0, end: 8 }
+        }
+      })
+
+      expect(parseToAST('~(1 2 3)')).toEqual({
+        result: {
+          kind: 'list',
+          value: [
+            { kind: 'atom', value: 'unquote', span: { start: 0, end: 1 } },
+            {
+              kind: 'list',
+              value: [
+                { kind: 'number', value: 1, span: { start: 2, end: 3 } },
+                { kind: 'number', value: 2, span: { start: 4, end: 5 } },
+                { kind: 'number', value: 3, span: { start: 6, end: 7 } }
+              ],
+              span: { start: 1, end: 8 }
+            }
+          ],
+          span: { start: 0, end: 8 }
+        }
       })
     })
   })

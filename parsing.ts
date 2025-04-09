@@ -56,7 +56,17 @@ function parseExpression(source: string, position: number): ASTParsingResult {
       if (consumptionState.sourceType === 'number') {
         if (isNumber(currentChar) || (currentChar === '.' && !consumptionState.source.includes('.'))) {
           consumptionState.source = `${consumptionState.source}${currentChar}`
+          currentPosition += 1
+          continue
         } else {
+          // If the number ends with a dot, remove it
+          if (consumptionState.source.endsWith('.')) {
+            consumptionState.source = consumptionState.source.slice(0, -1)
+            return produceExpression(consumptionState.sourceType, consumptionState.source, {
+              start: consumptionState.start,
+              end: currentPosition - 1,
+            })
+          }
           return produceExpression(consumptionState.sourceType, consumptionState.source, {
             start: consumptionState.start,
             end: currentPosition,
@@ -211,6 +221,21 @@ function parseExpression(source: string, position: number): ASTParsingResult {
             }
           }
         }
+      } else if (currentChar === '.') {
+        // Check if this starts a number
+        const nextChar = source[currentPosition + 1]
+        if (isNumber(nextChar)) {
+          consumptionState = { source: '0.', start: currentPosition, sourceType: 'number' }
+        } else {
+          // It's a dot operator in an expression
+          return {
+            result: {
+              kind: 'atom',
+              value: '.',
+              span: { start: currentPosition, end: currentPosition + 1 }
+            }
+          }
+        }
       } else if (currentChar === "'") {
         if (isWhitespace(source[currentPosition + 1])) {
           return {
@@ -293,6 +318,16 @@ function parseExpression(source: string, position: number): ASTParsingResult {
         consumptionState = { source: currentChar, start: currentPosition, sourceType: 'number' }
       } else if (currentChar === '"') {
         consumptionState = { start: currentPosition, sourceType: 'string', source: currentChar }
+      } else if (currentChar === '#') {
+        if (isWhitespace(source[currentPosition + 1])) {
+          return {
+            error: "Skip can't be followed by whitespace",
+            span: { start: currentPosition, end: currentPosition + 2 },
+            lastPosition: currentPosition + 2,
+          }
+        } else {
+          consumptionState = { start: currentPosition, sourceType: 'atom', source: currentChar }
+        }
       } else if (isAllowedAtomFirstChar(currentChar)) {
         consumptionState = { start: currentPosition, sourceType: 'atom', source: currentChar }
       } else {
