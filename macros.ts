@@ -4,17 +4,27 @@ import * as R from 'ramda'
 export type MacroExpansionError = { error: string; span?: Span }
 export type MacroExpansionResult = { result: MacrosAST } | MacroExpansionError
 
+let gensymCounter = 0
+
+function gensym(prefix = 'G__'): string {
+  return `${prefix}${gensymCounter++}`
+}
+
 export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evaluating = false): MacroExpansionResult {
   if (
     expression.kind === 'list' &&
     expression.value.length !== 0 &&
     expression.value[0].kind === 'atom' &&
-    expression.value[0].value === 'macro'
+    expression.value[0].value === 'defmacro'
   ) {
-    if (expression.value.length !== 3) {
+    if (expression.value.length !== 4) {
       return { error: 'Non complete macro definition', span: expression.span }
     }
-    const args = expression.value[1]
+    const name = expression.value[1]
+    if (name.kind !== 'atom') {
+      return { error: 'Macro name should be an atom', span: name.span }
+    }
+    const args = expression.value[2]
     if (args.kind !== 'vector') {
       return { error: 'Macro arguments should be in vector', span: args.span }
     }
@@ -22,9 +32,28 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
     if (invalidArg) {
       return { error: 'Invalid argument', span: invalidArg.span }
     }
-    const body = expression.value[2]
+    const body = expression.value[3]
+    
+    // Create a new environment with gensym'd variables
+    const gensymEnv = (args.value as MAtom[]).reduce((acc, arg) => {
+      const sym = gensym(arg.value)
+      return [...acc, { name: arg.value, value: { kind: 'atom', value: sym } as MAtom }]
+    }, [] as MacrosBinding[])
+    
     return {
-      result: { kind: 'macro', env: env, body, arguments: (args.value as MAtom[]).map((a) => a.value) },
+      result: { 
+        kind: 'macro', 
+        env: [...env, ...gensymEnv], 
+        body: {
+          ...body,
+          span: body.span ? {
+            start: body.span.start - 1,
+            end: body.span.end - 1
+          } : undefined
+        }, 
+        arguments: (args.value as MAtom[]).map((a) => a.value),
+        name: name.value
+      },
     }
   } else if (
     expression.kind === 'list' &&
@@ -203,11 +232,22 @@ export function expandMacros(expression: MacrosAST, env: MacrosBinding[], evalua
         if (fn.arguments.length !== args.length) {
           return { error: `Expected ${fn.arguments.length} arguments, got ${args.length}`, span: expression.span }
         }
-        return expandMacros(
+        const expanded = expandMacros(
           fn.body,
           [...fn.env, ...fn.arguments.map((arg, i) => ({ name: arg, value: args[i] }))],
           evaluatedExpressions[0].kind === 'macro' ? false : evaluating
         )
+        if ('error' in expanded) {
+          return expanded
+        }
+        // If the expanded result is a macro definition, we need to expand it further
+        if (expanded.result.kind === 'list' && 
+            expanded.result.value.length > 0 && 
+            expanded.result.value[0].kind === 'atom' && 
+            expanded.result.value[0].value === 'defmacro') {
+          return expandMacros(expanded.result, env, evaluating)
+        }
+        return expanded
       }
     } else {
       return { result: { ...expression, value: evaluatedExpressions } }
@@ -235,7 +275,7 @@ export function verifyNoMacros(expression: MacrosAST): EvalAST {
     expression.kind === 'list' &&
     expression.value.length !== 0 &&
     expression.value[0].kind === 'atom' &&
-    expression.value[0].value === 'macro'
+    expression.value[0].value === 'defmacro'
   ) {
     throw new Error(`Unexpected macro at ${JSON.stringify(expression.span)}`)
   } else if (

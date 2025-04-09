@@ -144,6 +144,7 @@ export type MMacro = {
   body: MacrosAST
   arguments: string[]
   env: MacrosBinding[]
+  name: string
   span?: Span
 }
 
