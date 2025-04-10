@@ -1,0 +1,6 @@
+; expected {"kind":"number","value":8}
+(let [x 5]
+  (defmacro test [y]
+    (list '+ x y))
+  (let [x 10]
+    (test 3))) 

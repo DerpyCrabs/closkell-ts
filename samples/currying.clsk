@@ -1,0 +1,8 @@
+; expected {"kind":"number","value":12}
+(let [curry (fn [f]
+              (fn [a]
+                (fn [b]
+                  (f a b))))
+      add (curry (fn [a b] (+ a b)))
+      add5 (add 5)]
+  (add5 7)) 

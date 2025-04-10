@@ -1,0 +1,8 @@
+; expected {"kind":"number","value":25}
+(defmacro let-destructure [[name value] & body]
+  (let [temp (gensym)]
+    (list 'let [temp value]
+      (list 'let [name temp]
+        & body))))
+(let-destructure [x (+ 2 3)]
+  (* x x)) 

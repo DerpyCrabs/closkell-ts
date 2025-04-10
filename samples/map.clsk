@@ -1,4 +1,4 @@
-; expected {"kind": "number", "value": 3}
+; expected {"kind": "number", "value": 30}
 (let
     [person {:name "John" :age 30 :height 180}]
     (get person :age)

@@ -1,0 +1,9 @@
+; expected {"kind":"atom","value":"true"}
+(let [x 5
+      y "hello"
+      z [1 2 3]
+      w {:a 1}]
+  (and (= (type x) "number")
+       (= (type y) "string")
+       (= (type z) "vector")
+       (= (type w) "map"))) 

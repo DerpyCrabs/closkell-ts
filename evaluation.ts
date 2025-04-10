@@ -1,4 +1,4 @@
-import { EvalAST, Binding, Span, EAtom } from './types.ts'
+import { EvalAST, Binding, Span, EAtom, EFunction } from './types.ts'
 import * as R from 'ramda'
 import { isBoolean, isFunctionDef, isIfBlock, isLetBlock, isList } from './matchers.ts'
 
@@ -23,7 +23,13 @@ export function evaluateExpression(
     }
     const body = expression.value[2]
     return {
-      result: { kind: 'function', env: env, body, arguments: (args.value as EAtom[]).map((a) => a.value) },
+      result: { 
+        kind: 'function', 
+        env, 
+        body, 
+        arguments: (args.value as EAtom[]).map((a) => a.value),
+        span: expression.span
+      }
     }
   } else if (isLetBlock(expression)) {
     if (expression.value.length !== 3) {
@@ -86,36 +92,134 @@ export function evaluateExpression(
     } else {
       return evaluateExpression(expression.value[3], env)
     }
-  } else if (isList(expression)) {
+  } else if (expression.kind === 'list' && expression.value.length > 0) {
+    const evaluatedExpressionsWithErrors = expression.value.map((e) => evaluateExpression(e, env))
+    const errors = evaluatedExpressionsWithErrors.filter((e) => 'error' in e)
+    if (errors.length !== 0) {
+      return errors[0] // TODO return all errors
+    }
+    const evaluatedExpressions = (evaluatedExpressionsWithErrors as { result: EvalAST }[]).map((e: { result: EvalAST }) => e.result)
+    const first = evaluatedExpressions[0]
+    if (first.kind === 'atom' && first.value.startsWith(':')) {
+      // Handle keyword lookup
+      if (evaluatedExpressions.length !== 2) {
+        return { error: `Expected exactly one argument for keyword lookup, got ${evaluatedExpressions.length - 1}`, span: expression.span }
+      }
+      const target = evaluatedExpressions[1]
+      if (target.kind !== 'map') {
+        return { error: `Expected map for keyword lookup, got ${target.kind}`, span: expression.span }
+      }
+      const key = first.value.slice(1)
+      for (let i = 0; i < target.value.length; i += 2) {
+        const mapKey = target.value[i]
+        if (mapKey.kind === 'atom' && mapKey.value === `:${key}`) {
+          return { result: target.value[i + 1] }
+        }
+      }
+      return { error: `Key not found: ${first.value}`, span: expression.span }
+    }
+    if (first.kind !== 'function' && first.kind !== 'intrinsicFunction') {
+      return { error: `Expression not callable: ${first.kind}`, span: first.span }
+    }
+    const fn = first
+    const args = evaluatedExpressions.slice(1)
+    if (fn.kind === 'intrinsicFunction') {
+      return fn.value(args)
+    } else if (fn.kind === 'function') {
+      if (args.length > fn.arguments.length) {
+        return { error: `Expected ${fn.arguments.length} arguments, got ${args.length}`, span: expression.span }
+      }
+      
+      // Create new bindings for the provided arguments
+      const newEnv: Binding[] = [
+        ...fn.env,
+        ...fn.arguments.slice(0, args.length).map((arg: string, i: number): Binding => ({
+          name: arg,
+          value: args[i]
+        }))
+      ]
+      
+      if (args.length === fn.arguments.length) {
+        // All arguments provided, evaluate the body
+        const result = evaluateExpression(fn.body, newEnv)
+        if ('error' in result) {
+          return result
+        }
+        // If the result is a function, update its environment
+        if (result.result.kind === 'function') {
+          return {
+            result: {
+              ...result.result,
+              env: newEnv
+            }
+          }
+        }
+        return result
+      } else {
+        // Partial application - return a new function with remaining arguments
+        return {
+          result: {
+            kind: 'function' as const,
+            env: newEnv,
+            arguments: fn.arguments.slice(args.length),
+            body: fn.body,
+            span: fn.span
+          }
+        }
+      }
+    }
+    // This branch should never be reached due to the type guard above
+    return { error: 'Unexpected function kind', span: expression.span }
+  } else if (expression.kind === 'vector') {
     const evaluatedExpressionsWithErrors = expression.value.map((e) => evaluateExpression(e, env))
     const errors = evaluatedExpressionsWithErrors.filter((e) => 'error' in e)
     if (errors.length !== 0) {
       return errors[0] // TODO return all errors
     }
     const evaluatedExpressions = (evaluatedExpressionsWithErrors as { result: EvalAST }[]).map((e) => e.result)
-    if (evaluatedExpressions[0].kind !== 'function' && evaluatedExpressions[0].kind !== 'intrinsicFunction') {
-      return { error: `Expression not callable: ${evaluatedExpressions[0].kind}, ${JSON.stringify(expression.value)}`, span: evaluatedExpressions[0].span }
-    }
-    const fn = evaluatedExpressions[0]
-    const args = evaluatedExpressions.slice(1)
-    if (fn.kind === 'intrinsicFunction') {
-      return fn.value(args)
-    } else {
-      if (fn.arguments.length !== args.length) {
-        return { error: `Expected ${fn.arguments.length} arguments, got ${args.length}`, span: expression.span }
+    return {
+      result: {
+        kind: 'vector',
+        value: evaluatedExpressions,
+        span: expression.span
       }
-      return evaluateExpression(fn.body, [...fn.env, ...fn.arguments.map((arg, i) => ({ name: arg, value: args[i] }))])
     }
-  } else if (expression.kind === 'atom' && !isBoolean(expression)) {
-    const binding = env.findLast((b) => b.name === expression.value)
-    if (binding) {
-      if (isFunctionDef(binding.value)) {
-        return evaluateExpression(binding.value, env)
-      } else {
+  } else if (expression.kind === 'atom') {
+    if (isBoolean(expression)) {
+      return { result: expression }
+    }
+    if (expression.value === 'nil') {
+      return { result: expression }
+    }
+    if (expression.value.startsWith(':')) {
+      // Handle keyword lookup
+      const binding = env.findLast((b) => b.name === expression.value)
+      if (binding) {
         return { result: binding.value }
       }
-    } else {
+      return { result: expression }
+    }
+    const binding = env.findLast((b) => b.name === expression.value)
+    if (!binding) {
       return { error: `Unknown atom ${expression.value}`, span: expression.span }
+    }
+    if (isFunctionDef(binding.value)) {
+      return evaluateExpression(binding.value, env)
+    }
+    return { result: binding.value }
+  } else if (expression.kind === 'map') {
+    const evaluatedExpressionsWithErrors = expression.value.map((e) => evaluateExpression(e, env))
+    const errors = evaluatedExpressionsWithErrors.filter((e) => 'error' in e)
+    if (errors.length !== 0) {
+      return errors[0] // TODO return all errors
+    }
+    const evaluatedExpressions = (evaluatedExpressionsWithErrors as { result: EvalAST }[]).map((e) => e.result)
+    return {
+      result: {
+        kind: 'map',
+        value: evaluatedExpressions,
+        span: expression.span
+      }
     }
   } else {
     return { result: expression }

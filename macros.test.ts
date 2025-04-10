@@ -47,11 +47,8 @@ function parseAndExpand(source: string, evaluate: boolean = false): { result: Ma
     console.log('Parse error:', parsed.error)
     return parsed
   }
-  console.log('Parsed AST:', JSON.stringify(parsed.result, null, 2))
   const macrosAST = convertToMacrosAST(parsed.result)
-  console.log('Converted to MacrosAST:', JSON.stringify(macrosAST, null, 2))
   const result = expandMacros(macrosAST, intrinsics, evaluate)
-  console.log('Expanded result:', JSON.stringify(result, null, 2))
   return result
 }
 

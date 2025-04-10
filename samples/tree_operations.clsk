@@ -1,0 +1,15 @@
+; expected {"kind":"number","value":6}
+(let [tree {:value 1
+           :left {:value 2
+                 :left nil
+                 :right nil}
+           :right {:value 3
+                  :left nil
+                  :right nil}}
+      sum-tree (fn [t]
+                 (if (nil? t)
+                   0
+                   (+ (:value t)
+                      (sum-tree (:left t))
+                      (sum-tree (:right t)))))]
+  (sum-tree tree)) 

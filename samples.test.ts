@@ -10,34 +10,28 @@ import { readdirSync } from 'node:fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-test('samples', async () => {
   const samples = await getSamples()
 
   for (const sample of samples) {
     test(sample.filename, () => {
       const result = testSample(sample)
-      expect(result).toEqual(sample.expected)
+      if ('error' in result) {
+        throw new Error(`Evaluation error: ${result.error}`)
+      }
+      expect(result.result).toEqual(sample.expected)
     })
   }
-})
 
-function testSample({ source, expected }: { filename: string; source: string; expected: EvalAST }): EvalAST {
+function testSample({ source, expected }: { filename: string; source: string; expected: EvalAST }): { result: EvalAST } | EvaluationError {
   const parsedAst = parseToAST(source)
-  expect('result' in parsedAst).toBe(true)
-  if (!('result' in parsedAst)) {
-    throw new Error(JSON.stringify((parsedAst as ASTParsingError).error))
+  if ('error' in parsedAst) {
+    throw new Error(`Parse error: ${parsedAst.error}`)
   }
   const macroExpandedAst = expandMacros(parsedAst.result, intrinsics)
-  expect('result' in macroExpandedAst).toBe(true)
-  if (!('result' in macroExpandedAst)) {
-    throw new Error(JSON.stringify((macroExpandedAst as MacroExpansionError).error))
+  if ('error' in macroExpandedAst) {
+    throw new Error(`Macro expansion error: ${macroExpandedAst.error}`)
   }
-  const evaledAst = evaluateExpression(verifyNoMacros(macroExpandedAst.result), intrinsics)
-  expect('result' in evaledAst).toBe(true)
-  if (!('result' in evaledAst)) {
-    throw new Error(JSON.stringify((evaledAst as EvaluationError).error))
-  }
-  return evaledAst.result
+  return evaluateExpression(verifyNoMacros(macroExpandedAst.result), intrinsics)
 }
 
 async function getSamples(): Promise<{ filename: string; source: string; expected: EvalAST }[]> {

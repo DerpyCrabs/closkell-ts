@@ -1,0 +1,14 @@
+; expected {"kind":"string","value":"five"}
+(defmacro match [expr & cases]
+  (let [value expr]
+    (if (empty? cases)
+      nil
+      (let [[pattern result & rest] cases]
+        (if (= value pattern)
+          result
+          (match value & rest))))))
+(match 5
+  1 "one"
+  2 "two"
+  5 "five"
+  "default") 
